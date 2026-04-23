@@ -10,7 +10,7 @@ class BlockchainStorage:
         self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
 
         # ✅ YOUR PRIVATE KEY
-        self.private_key = "0xcd77041fae444e1b96881daa0f8736345beefe76caa7ad52abcbf7c4098ff52b"
+        self.private_key = os.getenv("BLOCKCHAIN_PRIVATE_KEY")
 
         self.account = self.w3.eth.account.from_key(self.private_key)
 

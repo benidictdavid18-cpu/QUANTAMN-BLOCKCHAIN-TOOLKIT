@@ -1,6 +1,6 @@
 // Quantum-Resistant Blockchain Security Toolkit - Frontend JavaScript
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://quantum-toolkit-backend.onrender.com';
 let currentScanId = null;
 
 // Initialize
