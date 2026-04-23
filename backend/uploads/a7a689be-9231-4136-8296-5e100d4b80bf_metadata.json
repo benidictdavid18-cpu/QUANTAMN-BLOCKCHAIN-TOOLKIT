@@ -1,0 +1,122 @@
+{
+  "scan_id": "a7a689be-9231-4136-8296-5e100d4b80bf",
+  "timestamp": "2026-04-09T12:45:11.355783",
+  "company_name": " ff",
+  "sector": "Manufacturing",
+  "contact_email": "fvfvf@gmail.com",
+  "filename": "project_summary.py",
+  "vulnerabilities": {
+    "file_path": "uploads/a7a689be-9231-4136-8296-5e100d4b80bf_project_summary.py",
+    "language": "Python",
+    "total_lines": 166,
+    "vulnerabilities": [
+      {
+        "algorithm": "DH",
+        "description": "Diffie-Hellman key exchange (vulnerable to quantum attacks)",
+        "severity": "HIGH",
+        "line_number": 46,
+        "line_content": "\"\u2022 Diffie-Hellman (key exchange)\\n\\n\"",
+        "matched_pattern": "Diffie-Hellman",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "DH",
+        "description": "Diffie-Hellman key exchange (vulnerable to quantum attacks)",
+        "severity": "HIGH",
+        "line_number": 60,
+        "line_content": "\"\u2022 Identifies 5 types of vulnerabilities: ECDSA signatures, RSA encryption, SHA-256 hashing, Diffie-Hellman key exchange, Weak AES-128 encryption\\n\"",
+        "matched_pattern": "Diffie-Hellman",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "AES_SHORT",
+        "description": "AES with potentially insufficient key length for quantum resistance",
+        "severity": "MEDIUM",
+        "line_number": 60,
+        "line_content": "\"\u2022 Identifies 5 types of vulnerabilities: ECDSA signatures, RSA encryption, SHA-256 hashing, Diffie-Hellman key exchange, Weak AES-128 encryption\\n\"",
+        "matched_pattern": "AES-128",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "AES_SHORT",
+        "description": "AES with potentially insufficient key length for quantum resistance",
+        "severity": "MEDIUM",
+        "line_number": 60,
+        "line_content": "\"\u2022 Identifies 5 types of vulnerabilities: ECDSA signatures, RSA encryption, SHA-256 hashing, Diffie-Hellman key exchange, Weak AES-128 encryption\\n\"",
+        "matched_pattern": "AES-128",
+        "quantum_vulnerable": true
+      }
+    ],
+    "vulnerability_count": 4,
+    "has_signature_verification": true,
+    "has_key_exchange": true,
+    "quantum_ready": false
+  },
+  "migration_plan": {
+    "migration_steps": [
+      {
+        "step": 1,
+        "algorithm": "DH",
+        "occurrences": 2,
+        "pq_replacement": "ML-KEM (Kyber)",
+        "nist_standard": "FIPS 203",
+        "description": "Replaces Diffie-Hellman key exchange with quantum-safe KEM",
+        "implementation": "liboqs-python",
+        "affected_lines": [
+          46,
+          60
+        ],
+        "code_template": ""
+      },
+      {
+        "step": 2,
+        "algorithm": "AES_SHORT",
+        "occurrences": 2,
+        "pq_replacement": "AES-256",
+        "nist_standard": "FIPS 197",
+        "description": "Increase AES key size to 256 bits for quantum resistance",
+        "implementation": "PyCryptodome",
+        "affected_lines": [
+          60,
+          60
+        ],
+        "code_template": "\nfrom Crypto.Cipher import AES\nfrom Crypto.Random import get_random_bytes\nfrom Crypto.Util.Padding import pad, unpad\n\nclass QuantumSafeAES:\n    def __init__(self):\n        self.key = get_random_bytes(32)  # 256-bit key (quantum-resistant)\n    \n    def encrypt(self, plaintext: bytes) -> tuple:\n        '''Encrypt with AES-256-GCM'''\n        cipher = AES.new(self.key, AES.MODE_GCM)\n        ciphertext, tag = cipher.encrypt_and_digest(plaintext)\n        return cipher.nonce, ciphertext, tag\n    \n    def decrypt(self, nonce: bytes, ciphertext: bytes, tag: bytes) -> bytes:\n        '''Decrypt with AES-256-GCM'''\n        cipher = AES.new(self.key, AES.MODE_GCM, nonce=nonce)\n        plaintext = cipher.decrypt_and_verify(ciphertext, tag)\n        return plaintext\n"
+      }
+    ],
+    "recommendations": [
+      {
+        "priority": "HIGH",
+        "action": "Replace DH with ML-KEM (Kyber)",
+        "reason": "Vulnerable to quantum attacks (Replaces Diffie-Hellman key exchange with quantum-safe KEM)",
+        "standard": "FIPS 203"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Replace AES_SHORT with AES-256",
+        "reason": "Vulnerable to quantum attacks (Increase AES key size to 256 bits for quantum resistance)",
+        "standard": "FIPS 197"
+      },
+      {
+        "priority": "HIGH",
+        "action": "Conduct security audit after migration",
+        "reason": "Ensure post-quantum implementations are correctly integrated",
+        "standard": "ISO 27001"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Implement hybrid cryptography (classical + post-quantum)",
+        "reason": "Provides defense-in-depth during transition period",
+        "standard": "NIST Transitional Guidance"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Update key management practices",
+        "reason": "Post-quantum keys are larger and require updated infrastructure",
+        "standard": "NIST SP 800-57"
+      }
+    ],
+    "estimated_complexity": "LOW",
+    "timeline_estimate": "1-2 weeks"
+  },
+  "risk_score": 90
+}

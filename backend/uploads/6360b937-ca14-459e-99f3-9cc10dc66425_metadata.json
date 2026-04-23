@@ -1,0 +1,157 @@
+{
+  "scan_id": "6360b937-ca14-459e-99f3-9cc10dc66425",
+  "timestamp": "2026-03-09T13:13:49.361540",
+  "company_name": "nasif ltd",
+  "sector": "Pharmaceutical",
+  "contact_email": "nasif@gmail.com",
+  "filename": "sign_patient_consent.py",
+  "vulnerabilities": {
+    "file_path": "uploads/6360b937-ca14-459e-99f3-9cc10dc66425_sign_patient_consent.py",
+    "language": "Python",
+    "total_lines": 33,
+    "vulnerabilities": [
+      {
+        "algorithm": "ECDSA",
+        "description": "Elliptic Curve Digital Signature Algorithm (vulnerable to quantum attacks)",
+        "severity": "HIGH",
+        "line_number": 7,
+        "line_content": "PRIVATE_KEY = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)",
+        "matched_pattern": "ecdsa.",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "ECDSA",
+        "description": "Elliptic Curve Digital Signature Algorithm (vulnerable to quantum attacks)",
+        "severity": "HIGH",
+        "line_number": 7,
+        "line_content": "PRIVATE_KEY = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)",
+        "matched_pattern": "ecdsa.",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "ECDSA",
+        "description": "Elliptic Curve Digital Signature Algorithm (vulnerable to quantum attacks)",
+        "severity": "HIGH",
+        "line_number": 7,
+        "line_content": "PRIVATE_KEY = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)",
+        "matched_pattern": "SECP256k1",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "ECDSA",
+        "description": "Elliptic Curve Digital Signature Algorithm (vulnerable to quantum attacks)",
+        "severity": "HIGH",
+        "line_number": 26,
+        "line_content": "\"curve\": \"secp256k1\",",
+        "matched_pattern": "secp256k1",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "SHA256",
+        "description": "SHA-256 hashing (partially vulnerable, need larger key sizes)",
+        "severity": "MEDIUM",
+        "line_number": 13,
+        "line_content": "message_hash = hashlib.sha256(message).digest()",
+        "matched_pattern": "sha256(",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "SHA256",
+        "description": "SHA-256 hashing (partially vulnerable, need larger key sizes)",
+        "severity": "MEDIUM",
+        "line_number": 13,
+        "line_content": "message_hash = hashlib.sha256(message).digest()",
+        "matched_pattern": "hashlib.sha256",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "SHA256",
+        "description": "SHA-256 hashing (partially vulnerable, need larger key sizes)",
+        "severity": "MEDIUM",
+        "line_number": 17,
+        "line_content": "hashfunc=hashlib.sha256",
+        "matched_pattern": "hashlib.sha256",
+        "quantum_vulnerable": true
+      }
+    ],
+    "vulnerability_count": 7,
+    "has_signature_verification": true,
+    "has_key_exchange": false,
+    "quantum_ready": false
+  },
+  "migration_plan": {
+    "migration_steps": [
+      {
+        "step": 1,
+        "algorithm": "ECDSA",
+        "occurrences": 4,
+        "pq_replacement": "ML-DSA (Dilithium)",
+        "nist_standard": "FIPS 204",
+        "description": "Module-Lattice-Based Digital Signature Algorithm",
+        "implementation": "liboqs-python or pqcrypto library",
+        "affected_lines": [
+          7,
+          7,
+          7,
+          26
+        ],
+        "code_template": "\n# Post-Quantum Signature using ML-DSA (Dilithium)\nfrom pqcrypto.sign.dilithium2 import generate_keypair, sign, verify\n\nclass QuantumSafeSigner:\n    def __init__(self):\n        self.public_key, self.secret_key = generate_keypair()\n    \n    def sign_message(self, message: bytes) -> bytes:\n        '''Sign message using ML-DSA (Dilithium)'''\n        signature = sign(message, self.secret_key)\n        return signature\n    \n    def verify_signature(self, message: bytes, signature: bytes, public_key: bytes) -> bool:\n        '''Verify ML-DSA signature'''\n        try:\n            verify(signature, message, public_key)\n            return True\n        except:\n            return False\n\n# Usage example\nsigner = QuantumSafeSigner()\nmessage = b\"Quantum-safe transaction\"\nsignature = signer.sign_message(message)\nis_valid = signer.verify_signature(message, signature, signer.public_key)\n"
+      },
+      {
+        "step": 2,
+        "algorithm": "SHA256",
+        "occurrences": 3,
+        "pq_replacement": "SHA-384 or SHA-512",
+        "nist_standard": "FIPS 180-4",
+        "description": "Increase hash output size for quantum resistance (Grover's algorithm)",
+        "implementation": "hashlib (Python standard library)",
+        "affected_lines": [
+          13,
+          13,
+          17
+        ],
+        "code_template": "\nimport hashlib\n\n# Quantum-resistant hashing (larger output size)\ndef quantum_safe_hash(data: bytes) -> bytes:\n    '''Use SHA-384 or SHA-512 for quantum resistance'''\n    return hashlib.sha512(data).digest()  # 512-bit output\n\n# For blockchain applications\ndef quantum_safe_merkle_root(transactions: list) -> bytes:\n    '''Build Merkle tree with SHA-512'''\n    if len(transactions) == 1:\n        return quantum_safe_hash(transactions[0])\n    \n    # Recursively build tree\n    mid = len(transactions) // 2\n    left = quantum_safe_merkle_root(transactions[:mid])\n    right = quantum_safe_merkle_root(transactions[mid:])\n    return quantum_safe_hash(left + right)\n"
+      }
+    ],
+    "recommendations": [
+      {
+        "priority": "HIGH",
+        "action": "Replace ECDSA with ML-DSA (Dilithium)",
+        "reason": "Vulnerable to quantum attacks (Module-Lattice-Based Digital Signature Algorithm)",
+        "standard": "FIPS 204"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Replace SHA256 with SHA-384 or SHA-512",
+        "reason": "Vulnerable to quantum attacks (Increase hash output size for quantum resistance (Grover's algorithm))",
+        "standard": "FIPS 180-4"
+      },
+      {
+        "priority": "HIGH",
+        "action": "Conduct security audit after migration",
+        "reason": "Ensure post-quantum implementations are correctly integrated",
+        "standard": "ISO 27001"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Implement hybrid cryptography (classical + post-quantum)",
+        "reason": "Provides defense-in-depth during transition period",
+        "standard": "NIST Transitional Guidance"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Update key management practices",
+        "reason": "Post-quantum keys are larger and require updated infrastructure",
+        "standard": "NIST SP 800-57"
+      }
+    ],
+    "estimated_complexity": "MEDIUM",
+    "timeline_estimate": "2-4 weeks"
+  },
+  "risk_score": 100.0,
+  "blockchain": {
+    "tx_hash": "0xf9852e617ebf4d11e01b1c94db002c3d50c7a5850b6821057b20ef34a2e0ffa8",
+    "block_number": 40042280,
+    "network": "Polygon Mumbai Testnet"
+  }
+}

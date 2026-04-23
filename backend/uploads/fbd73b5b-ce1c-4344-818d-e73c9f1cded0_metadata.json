@@ -1,0 +1,278 @@
+{
+  "scan_id": "fbd73b5b-ce1c-4344-818d-e73c9f1cded0",
+  "timestamp": "2026-04-24T00:01:58.399104",
+  "company_name": "benny",
+  "sector": "Pharmaceutical",
+  "contact_email": "bd@gmail.com",
+  "filename": "vulnerable_user_data_handler.py",
+  "vulnerabilities": {
+    "file_path": "uploads/fbd73b5b-ce1c-4344-818d-e73c9f1cded0_vulnerable_user_data_handler.py",
+    "language": "Unknown",
+    "total_lines": 57,
+    "vulnerabilities": [
+      {
+        "algorithm": "ECDSA",
+        "description": "Elliptic Curve Digital Signature Algorithm (vulnerable to quantum attacks)",
+        "severity": "HIGH",
+        "line_number": 7,
+        "line_content": "from ecdsa import SigningKey, SECP256k1          # Vulnerable ECDSA",
+        "matched_pattern": "SECP256k1",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "ECDSA",
+        "description": "Elliptic Curve Digital Signature Algorithm (vulnerable to quantum attacks)",
+        "severity": "HIGH",
+        "line_number": 27,
+        "line_content": "sk = SigningKey.generate(curve=SECP256k1)",
+        "matched_pattern": "SECP256k1",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "ECDSA",
+        "description": "Elliptic Curve Digital Signature Algorithm (vulnerable to quantum attacks)",
+        "severity": "HIGH",
+        "line_number": 7,
+        "line_content": "from ecdsa import SigningKey, SECP256k1          # Vulnerable ECDSA",
+        "matched_pattern": "from ecdsa import",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "RSA",
+        "description": "RSA encryption (vulnerable to Shor's algorithm)",
+        "severity": "HIGH",
+        "line_number": 32,
+        "line_content": "rsa_key = RSA.generate(2048)",
+        "matched_pattern": "RSA.",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "RSA",
+        "description": "RSA encryption (vulnerable to Shor's algorithm)",
+        "severity": "HIGH",
+        "line_number": 8,
+        "line_content": "from Crypto.PublicKey import RSA                 # Vulnerable RSA",
+        "matched_pattern": "from Crypto.PublicKey import RSA",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "SHA256",
+        "description": "SHA-256 hashing (partially vulnerable, need larger key sizes)",
+        "severity": "MEDIUM",
+        "line_number": 37,
+        "line_content": "aes_key = hashlib.sha256(b\"secret123\").digest()[:16]   # Only 128-bit effective",
+        "matched_pattern": "sha256(",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "SHA256",
+        "description": "SHA-256 hashing (partially vulnerable, need larger key sizes)",
+        "severity": "MEDIUM",
+        "line_number": 44,
+        "line_content": "biometric_hash = hashlib.sha256(face_encoding.tobytes()).digest()",
+        "matched_pattern": "sha256(",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "SHA256",
+        "description": "SHA-256 hashing (partially vulnerable, need larger key sizes)",
+        "severity": "MEDIUM",
+        "line_number": 37,
+        "line_content": "aes_key = hashlib.sha256(b\"secret123\").digest()[:16]   # Only 128-bit effective",
+        "matched_pattern": "hashlib.sha256",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "SHA256",
+        "description": "SHA-256 hashing (partially vulnerable, need larger key sizes)",
+        "severity": "MEDIUM",
+        "line_number": 44,
+        "line_content": "biometric_hash = hashlib.sha256(face_encoding.tobytes()).digest()",
+        "matched_pattern": "hashlib.sha256",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "AES_SHORT",
+        "description": "AES with potentially insufficient key length for quantum resistance",
+        "severity": "MEDIUM",
+        "line_number": 38,
+        "line_content": "cipher = AES.new(aes_key, AES.MODE_ECB)",
+        "matched_pattern": "AES.new(aes_key, AES.MODE_",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "AES_SHORT",
+        "description": "AES with potentially insufficient key length for quantum resistance",
+        "severity": "MEDIUM",
+        "line_number": 9,
+        "line_content": "from Crypto.Cipher import AES                    # Weak AES-128",
+        "matched_pattern": "AES-128",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "AES_SHORT",
+        "description": "AES with potentially insufficient key length for quantum resistance",
+        "severity": "MEDIUM",
+        "line_number": 36,
+        "line_content": "# 3. AES-128 - Encrypting financial records (Weak against Grover)",
+        "matched_pattern": "AES-128",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "AES_SHORT",
+        "description": "AES with potentially insufficient key length for quantum resistance",
+        "severity": "MEDIUM",
+        "line_number": 56,
+        "line_content": "print(\"   \u2192 Aadhaar, Bank details, Biometrics, and Private Keys are protected only by RSA/ECDSA/AES-128\")",
+        "matched_pattern": "AES-128",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "AES_SHORT",
+        "description": "AES with potentially insufficient key length for quantum resistance",
+        "severity": "MEDIUM",
+        "line_number": 9,
+        "line_content": "from Crypto.Cipher import AES                    # Weak AES-128",
+        "matched_pattern": "AES-128",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "AES_SHORT",
+        "description": "AES with potentially insufficient key length for quantum resistance",
+        "severity": "MEDIUM",
+        "line_number": 36,
+        "line_content": "# 3. AES-128 - Encrypting financial records (Weak against Grover)",
+        "matched_pattern": "AES-128",
+        "quantum_vulnerable": true
+      },
+      {
+        "algorithm": "AES_SHORT",
+        "description": "AES with potentially insufficient key length for quantum resistance",
+        "severity": "MEDIUM",
+        "line_number": 56,
+        "line_content": "print(\"   \u2192 Aadhaar, Bank details, Biometrics, and Private Keys are protected only by RSA/ECDSA/AES-128\")",
+        "matched_pattern": "AES-128",
+        "quantum_vulnerable": true
+      }
+    ],
+    "vulnerability_count": 16,
+    "has_signature_verification": true,
+    "has_key_exchange": true,
+    "quantum_ready": false
+  },
+  "migration_plan": {
+    "migration_steps": [
+      {
+        "step": 1,
+        "algorithm": "ECDSA",
+        "occurrences": 3,
+        "pq_replacement": "ML-DSA (Dilithium)",
+        "nist_standard": "FIPS 204",
+        "description": "Module-Lattice-Based Digital Signature Algorithm",
+        "implementation": "liboqs-python or pqcrypto library",
+        "affected_lines": [
+          7,
+          27,
+          7
+        ],
+        "code_template": "\n# Post-Quantum Signature using ML-DSA (Dilithium)\nfrom pqcrypto.sign.dilithium2 import generate_keypair, sign, verify\n\nclass QuantumSafeSigner:\n    def __init__(self):\n        self.public_key, self.secret_key = generate_keypair()\n    \n    def sign_message(self, message: bytes) -> bytes:\n        '''Sign message using ML-DSA (Dilithium)'''\n        signature = sign(message, self.secret_key)\n        return signature\n    \n    def verify_signature(self, message: bytes, signature: bytes, public_key: bytes) -> bool:\n        '''Verify ML-DSA signature'''\n        try:\n            verify(signature, message, public_key)\n            return True\n        except:\n            return False\n\n# Usage example\nsigner = QuantumSafeSigner()\nmessage = b\"Quantum-safe transaction\"\nsignature = signer.sign_message(message)\nis_valid = signer.verify_signature(message, signature, signer.public_key)\n"
+      },
+      {
+        "step": 2,
+        "algorithm": "RSA",
+        "occurrences": 2,
+        "pq_replacement": "ML-KEM (Kyber) for encryption",
+        "nist_standard": "FIPS 203",
+        "description": "Module-Lattice-Based Key Encapsulation Mechanism",
+        "implementation": "liboqs-python",
+        "affected_lines": [
+          32,
+          8
+        ],
+        "code_template": "\n# Post-Quantum Key Encapsulation using ML-KEM (Kyber)\nfrom pqcrypto.kem.kyber512 import generate_keypair, encrypt, decrypt\n\nclass QuantumSafeEncryption:\n    def __init__(self):\n        self.public_key, self.secret_key = generate_keypair()\n    \n    def encapsulate(self, recipient_public_key: bytes):\n        '''Generate shared secret using ML-KEM'''\n        ciphertext, shared_secret = encrypt(recipient_public_key)\n        return ciphertext, shared_secret\n    \n    def decapsulate(self, ciphertext: bytes) -> bytes:\n        '''Recover shared secret using ML-KEM'''\n        shared_secret = decrypt(ciphertext, self.secret_key)\n        return shared_secret\n\n# Usage\nencryptor = QuantumSafeEncryption()\nct, secret1 = encryptor.encapsulate(encryptor.public_key)\nsecret2 = encryptor.decapsulate(ct)\nassert secret1 == secret2  # Shared secret established\n"
+      },
+      {
+        "step": 3,
+        "algorithm": "SHA256",
+        "occurrences": 4,
+        "pq_replacement": "SHA-384 or SHA-512",
+        "nist_standard": "FIPS 180-4",
+        "description": "Increase hash output size for quantum resistance (Grover's algorithm)",
+        "implementation": "hashlib (Python standard library)",
+        "affected_lines": [
+          37,
+          44,
+          37,
+          44
+        ],
+        "code_template": "\nimport hashlib\n\n# Quantum-resistant hashing (larger output size)\ndef quantum_safe_hash(data: bytes) -> bytes:\n    '''Use SHA-384 or SHA-512 for quantum resistance'''\n    return hashlib.sha512(data).digest()  # 512-bit output\n\n# For blockchain applications\ndef quantum_safe_merkle_root(transactions: list) -> bytes:\n    '''Build Merkle tree with SHA-512'''\n    if len(transactions) == 1:\n        return quantum_safe_hash(transactions[0])\n    \n    # Recursively build tree\n    mid = len(transactions) // 2\n    left = quantum_safe_merkle_root(transactions[:mid])\n    right = quantum_safe_merkle_root(transactions[mid:])\n    return quantum_safe_hash(left + right)\n"
+      },
+      {
+        "step": 4,
+        "algorithm": "AES_SHORT",
+        "occurrences": 7,
+        "pq_replacement": "AES-256",
+        "nist_standard": "FIPS 197",
+        "description": "Increase AES key size to 256 bits for quantum resistance",
+        "implementation": "PyCryptodome",
+        "affected_lines": [
+          38,
+          9,
+          36,
+          56,
+          9,
+          36,
+          56
+        ],
+        "code_template": "\nfrom Crypto.Cipher import AES\nfrom Crypto.Random import get_random_bytes\nfrom Crypto.Util.Padding import pad, unpad\n\nclass QuantumSafeAES:\n    def __init__(self):\n        self.key = get_random_bytes(32)  # 256-bit key (quantum-resistant)\n    \n    def encrypt(self, plaintext: bytes) -> tuple:\n        '''Encrypt with AES-256-GCM'''\n        cipher = AES.new(self.key, AES.MODE_GCM)\n        ciphertext, tag = cipher.encrypt_and_digest(plaintext)\n        return cipher.nonce, ciphertext, tag\n    \n    def decrypt(self, nonce: bytes, ciphertext: bytes, tag: bytes) -> bytes:\n        '''Decrypt with AES-256-GCM'''\n        cipher = AES.new(self.key, AES.MODE_GCM, nonce=nonce)\n        plaintext = cipher.decrypt_and_verify(ciphertext, tag)\n        return plaintext\n"
+      }
+    ],
+    "recommendations": [
+      {
+        "priority": "HIGH",
+        "action": "Replace ECDSA with ML-DSA (Dilithium)",
+        "reason": "Vulnerable to quantum attacks (Module-Lattice-Based Digital Signature Algorithm)",
+        "standard": "FIPS 204"
+      },
+      {
+        "priority": "HIGH",
+        "action": "Replace RSA with ML-KEM (Kyber) for encryption",
+        "reason": "Vulnerable to quantum attacks (Module-Lattice-Based Key Encapsulation Mechanism)",
+        "standard": "FIPS 203"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Replace SHA256 with SHA-384 or SHA-512",
+        "reason": "Vulnerable to quantum attacks (Increase hash output size for quantum resistance (Grover's algorithm))",
+        "standard": "FIPS 180-4"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Replace AES_SHORT with AES-256",
+        "reason": "Vulnerable to quantum attacks (Increase AES key size to 256 bits for quantum resistance)",
+        "standard": "FIPS 197"
+      },
+      {
+        "priority": "HIGH",
+        "action": "Conduct security audit after migration",
+        "reason": "Ensure post-quantum implementations are correctly integrated",
+        "standard": "ISO 27001"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Implement hybrid cryptography (classical + post-quantum)",
+        "reason": "Provides defense-in-depth during transition period",
+        "standard": "NIST Transitional Guidance"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Update key management practices",
+        "reason": "Post-quantum keys are larger and require updated infrastructure",
+        "standard": "NIST SP 800-57"
+      }
+    ],
+    "estimated_complexity": "HIGH",
+    "timeline_estimate": "4-8 weeks"
+  },
+  "risk_score": 100.0
+}
