@@ -1,1 +1,13 @@
-backend/.env
+# Env
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Temp / user data
+uploads/
+backend/uploads/
+
+# Editor
+.vscode/
