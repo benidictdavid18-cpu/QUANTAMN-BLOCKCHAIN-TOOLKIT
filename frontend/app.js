@@ -1,6 +1,6 @@
 // Quantum-Resistant Blockchain Security Toolkit - Frontend JavaScript
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://quantamn-blockchain-toolkit-production.up.railway.app';
 let currentScanId = null;
 
 // Initialize
