@@ -235,136 +235,134 @@ the estimate of how much work the migration needs.
 \section{Background and Related Work}
 \label{sec:background}
 
-\subsection{Quantum Threats to Deployed Primitives}
+\subsection{What Quantum Computers Break}
 
-Classical public-key cryptography rests on problems believed intractable for
-classical computers. RSA depends on integer factorisation; ECDSA on the
-elliptic-curve discrete logarithm problem; Diffie--Hellman on the discrete
-logarithm problem in a finite field. Shor's algorithm~\cite{shor1997} solves all
-three in polynomial time on a quantum computer, so these primitives are broken
-rather than weakened. The practical question is only when suitable hardware
-exists. Webber et al.~\cite{webber2022} estimate that recovering a Bitcoin
-private key within one hour would require on the order of hundreds of millions
-of physical qubits under plausible error-correction assumptions, which is far
-beyond present capability; however, resource estimates have fallen repeatedly as
-error-correction techniques have improved, and the relevant planning horizon is
-set by regulators rather than by any single estimate.
+Today's public-key cryptography works because some maths problems are too slow
+for normal computers to solve. RSA is safe because factoring a large number
+into its primes takes too long. ECDSA is safe because working backwards from a
+point on an elliptic curve takes too long. Diffie--Hellman relies on a similar
+problem. Shor's algorithm~\cite{shor1997} solves all three quickly on a quantum
+computer. These algorithms are not weakened by it; they stop working
+altogether.
 
-Grover's algorithm~\cite{grover1996} acts differently. It confers a quadratic
-speedup on unstructured search, which halves effective security for symmetric
-constructions. This weakens rather than destroys: AES-128 retains roughly 64-bit
-security and SHA-256 roughly 128-bit preimage resistance against a quantum
-adversary. The standard response is to lengthen parameters, moving to AES-256
-and SHA-384 or SHA-512, rather than to change the construction.
+The only open question is when the hardware arrives. Webber et
+al.~\cite{webber2022} estimated that stealing a Bitcoin private key within an
+hour would need hundreds of millions of physical qubits, far beyond anything
+built so far, but such estimates keep falling as error correction improves, and
+in practice the deadline companies work to is set by regulators rather than by
+any single estimate. Grover's algorithm~\cite{grover1996} is a milder threat: it
+speeds up brute-force search, halving the strength of hashes and block ciphers.
+The fix there is bigger sizes, AES-256 and SHA-384 or SHA-512, rather than a
+different kind of algorithm.
 
-\subsection{Standardised Replacements}
+\subsection{What to Replace Them With}
 
-Table~\ref{tab:nist} lists the finalised NIST standards that form the target of
-any migration. Bernstein and Lange~\cite{bernstein2017} survey the underlying
-mathematics.
+Table~\ref{tab:nist} lists the three standards NIST finalised in August 2024.
+Bernstein and Lange~\cite{bernstein2017} give a good overview of the maths
+behind them.
 
 \begin{table}[t]
 \centering
-\caption{Finalised NIST post-quantum standards and the classical primitives they
-replace.}
+\caption{The finalised NIST post-quantum standards and what each one replaces.}
 \label{tab:nist}
 \begin{tabular}{@{}llll@{}}
 \toprule
-\textbf{Standard} & \textbf{Algorithm} & \textbf{Hardness basis} & \textbf{Replaces} \\
+\textbf{Standard} & \textbf{Algorithm} & \textbf{Based on} & \textbf{Replaces} \\
 \midrule
-FIPS 203 & ML-KEM (Kyber)      & Module lattices & RSA transport, DH, ECDH \\
-FIPS 204 & ML-DSA (Dilithium)  & Module lattices & RSA signatures, ECDSA \\
-FIPS 205 & SLH-DSA (SPHINCS+)  & Hash functions  & ECDSA, long-lived roots \\
+FIPS 203 & ML-KEM (Kyber)      & Lattices       & RSA key transport, DH, ECDH \\
+FIPS 204 & ML-DSA (Dilithium)  & Lattices       & RSA signatures, ECDSA \\
+FIPS 205 & SLH-DSA (SPHINCS+)  & Hash functions & ECDSA, long-lived keys \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-A practical consideration shapes our recommendations for on-chain code. ML-DSA
-signatures and public keys are substantially larger than their ECDSA
-counterparts, and lattice verification is not expressible within current
-Ethereum gas limits at acceptable cost. Consequently the appropriate migration
-for a contract that verifies signatures on-chain is not a drop-in substitution
-but an architectural change: verification moves off-chain and the contract
-records a commitment to the verified result. Our migration output states this
-rather than offering a substitution that cannot be deployed. A second constraint
-applies to Keccak-256: because Ethereum address derivation depends on it,
-replacing it inside a deployed contract is not possible without breaking
-identity, so we scope hash recommendations to off-chain use.
+One practical problem shapes what we can recommend for code that runs on-chain.
+ML-DSA signatures and keys are much bigger than ECDSA ones, and running lattice
+verification inside a smart contract costs more gas than is realistic today. So
+a contract that checks signatures on-chain cannot simply swap one function for
+another. It has to be restructured: the signature is checked off-chain, and the
+contract only records that the check passed. Our tool says this plainly instead
+of suggesting a replacement that will not run.
 
-\subsection{Static Analysis for Blockchain and Cryptography}
+There is a second limit. Ethereum derives wallet addresses using Keccak-256, so
+a deployed contract cannot switch to a different hash without breaking every
+address that depends on it. We therefore only recommend changing hashes in
+off-chain code.
 
-Smart-contract analysis is a mature area. Slither~\cite{slither} performs
-static analysis over an intermediate representation of Solidity and detects a
-broad catalogue of logical vulnerability patterns; Mythril applies symbolic
-execution to EVM bytecode; Manticore supports symbolic exploration of both. None
-reports cryptographic composition, because an ECDSA verification is
-well-formed code under their threat models.
+\subsection{Why Existing Tools Do Not Help}
 
-Cryptographic-misuse detection has been studied separately.
-CryptoGuard~\cite{cryptoguard} identifies misuse patterns such as hard-coded
-keys and insecure modes in Java applications with low false-positive rates, and
-CrySL~\cite{crysl} provides a specification language for correct API usage.
-These target \emph{incorrect use of sound primitives}. Our problem is the
-complement: correct use of primitives that will become unsound. The two are not
-interchangeable, and a misuse detector reports nothing for a textbook-correct
-ECDSA implementation, which is precisely the case of interest here.
+Tools for checking smart contracts are well developed. Slither~\cite{slither}
+analyses Solidity code and finds a long list of known bug patterns. Mythril
+runs the compiled contract symbolically, and Manticore can do both. None of
+them reports which cryptographic algorithms a contract uses, because using
+ECDSA has never counted as a bug in their view of the world.
 
-The inventory framing has recently been formalised through the cryptographic
-bill of materials. CycloneDX~\cite{cyclonedx} added a
-\texttt{cryptographic-asset} component type that allows an algorithm, its
-primitive class and its execution environment to be expressed in a
-machine-readable inventory. Emitting this format rather than a bespoke one
-situates our output within existing supply-chain tooling, and we adopt it for
-that reason.
+Checking cryptography has been studied separately.
+CryptoGuard~\cite{cryptoguard} finds mistakes such as hard-coded keys and
+insecure modes in Java programs, and CrySL~\cite{crysl} lets you write rules
+for how a crypto library should be used. Both look for \emph{wrong use of safe
+algorithms}. Our problem is the opposite: \emph{correct use of algorithms that
+are about to become unsafe}. A misuse checker reports nothing at all for a
+textbook-perfect ECDSA implementation, which is exactly the code we need to
+find.
 
-To our knowledge no published tool combines quantum-vulnerability detection for
-ledger code, standards-aligned migration planning, cryptographic inventory
-export, and verifiable assessment records. The gap we address is therefore
-partly integrative. The methodological contribution, however, is the precision
-treatment in Section~\ref{sec:method}, which applies to any lexical
-cryptographic inventory tool.
+The idea of listing the cryptography a system uses has recently been given a
+standard form. CycloneDX~\cite{cyclonedx} added a
+\texttt{cryptographic-asset} component type, which lets you describe an
+algorithm, what kind of primitive it is, and where it runs, in a format other
+tools can read. We produce this format rather than inventing our own, so our
+output fits into software supply-chain tools companies already use.
+
+As far as we know, no published tool combines all four of: finding quantum-weak
+cryptography in blockchain code, planning the migration against the standards,
+exporting a machine-readable inventory, and producing a verifiable record. So
+part of our contribution is simply joining these up. The research contribution,
+though, is the accuracy work in Section~\ref{sec:method}, which applies to any
+tool that searches source code for cryptography.
 
 % ============================================================================
 \section{Threat Model and Design Goals}
 \label{sec:threat}
 
-We state the adversary and the scope precisely, because the scope boundary
-explains several design decisions and all of the limitations.
+It is worth stating exactly who we are defending against and what we do not try
+to do, because that boundary explains several of our design choices and all of
+our limitations.
 
-\paragraph{Adversary.} We assume a \emph{harvest-now, decrypt-later} adversary
-who records public ledger data continuously and acquires cryptographically
-relevant quantum capability at an unknown future time, after which it can
-recover private keys from recorded public keys and forge signatures. The
-adversary does not need access to the organisation's systems, because the
-material it requires is already public.
+\paragraph{The attacker.} We assume an attacker who follows a \emph{harvest
+now, decrypt later} strategy. They record public blockchain data continuously
+today, and at some unknown point in the future they get a quantum computer.
+From then on they can work out private keys from the public keys they recorded
+and forge signatures. Note that this attacker never needs to break into the
+company's systems, because everything they need is already public.
 
-\paragraph{Scope.} The tool answers the question: \emph{at which source
-locations does this artefact invoke a primitive that the above adversary
-defeats?} It does not evaluate protocol design, key management, randomness
-quality, or whether a correctly named primitive is correctly used. These are
-separate analyses, and we are explicit that our output is a migration worklist
-rather than a cryptographic audit.
+\paragraph{What we do and do not check.} Our tool answers one question:
+\emph{which lines of this code use an algorithm that the attacker above can
+break?} It does not check whether the protocol design is sound, whether keys
+are stored safely, whether random numbers are generated properly, or whether a
+correctly-named algorithm is being used correctly. Those are separate jobs. Our
+output is a to-do list for a migration, not a security audit, and we say so in
+the generated reports as well as here.
 
-\paragraph{Design goals.} Four goals follow.
-\textbf{G1, precision over volume}: an engineer must be able to trust that each
-reported location requires work, because a worklist that reports documentation
-as a defect is discarded on first review.
-\textbf{G2, actionable specificity}: each finding must carry an exact line and a
-named replacement with its governing standard.
-\textbf{G3, confidentiality}: assessing proprietary ledger code must not require
-transmitting it, since the organisations most exposed are least able to upload
-source to a third party.
-\textbf{G4, verifiability}: an assessment presented to a regulator or insurer
-must be independently checkable for integrity and date, without trusting the
-assessing party.
+\paragraph{What this means for the design.} Four goals follow.
+\textbf{G1, be accurate rather than thorough}: a developer has to be able to
+trust that every line we report really needs work, because a list that flags
+comments as problems gets thrown away the first time someone checks it.
+\textbf{G2, be specific}: every result needs an exact line number, a named
+replacement, and the standard it comes from.
+\textbf{G3, keep the code private}: checking private blockchain code must not
+require uploading it, because the companies with the most to lose are the least
+willing to send their source to someone else.
+\textbf{G4, be verifiable}: when a company shows a report to a regulator or an
+insurer, that party needs to be able to check it is genuine and when it was
+made, without having to trust the company.
 
 % ============================================================================
 \section{System Architecture}
 \label{sec:arch}
 
-The system is a five-stage pipeline (Fig.~\ref{fig:arch}). Stages are
-independent and communicate through JSON, so each can be replaced without
-disturbing the others.
+The tool works as five steps in a row (Fig.~\ref{fig:arch}). Each step is
+separate and passes its results on as JSON, so any one of them can be replaced
+without touching the others.
 
 \begin{figure}[t]
 \centering
@@ -376,10 +374,10 @@ disturbing the others.
               font=\scriptsize, minimum height=7mm, text width=19mm},
   ar/.style={-{Latex[length=1.5mm]}, thick}
 ]
-\node[box] (src) {Source\\artefact};
-\node[box, right=of src] (scan) {Masking\\+ matching};
-\node[box, right=of scan] (dedup) {Per-line\\dedup};
-\node[box, right=of dedup] (score) {Exposure\\score};
+\node[box] (src) {Source\\file};
+\node[box, right=of src] (scan) {Hide comments,\\then search};
+\node[box, right=of scan] (dedup) {Group by\\line};
+\node[box, right=of dedup] (score) {Risk\\score};
 \node[box, right=of score] (plan) {Migration\\plan};
 
 \draw[ar] (src) -- (scan);
@@ -387,63 +385,53 @@ disturbing the others.
 \draw[ar] (dedup) -- (score);
 \draw[ar] (score) -- (plan);
 
-\node[out, below=7mm of dedup] (cbom) {CycloneDX\\CBOM};
-\node[out, below=7mm of score] (rep) {Compliance\\report};
-\node[out, below=7mm of plan] (anc) {Ledger\\anchor};
+\node[out, below=7mm of dedup] (cbom) {CycloneDX\\list};
+\node[out, below=7mm of score] (rep) {Report for\\regulator};
+\node[out, below=7mm of plan] (anc) {Blockchain\\record};
 
 \draw[ar, gray] (dedup) -- (cbom);
 \draw[ar, gray] (score) -- (rep);
 \draw[ar, gray] (plan) -- (anc);
 \end{tikzpicture}
-\caption{Processing pipeline. Solid boxes are analysis stages; dashed boxes are
-governance artefacts derived from the stage above them.}
+\caption{How the tool processes a file. Solid boxes are the analysis steps;
+dashed boxes are the documents produced from the step above.}
 \label{fig:arch}
 \end{figure}
 
-\paragraph{Stage 1, masking and matching.} The artefact is normalised so that
-only executable text is searched, then matched against a pattern set covering
-five algorithm families. Section~\ref{sec:masking} describes the masking step.
+Steps 1 to 3 are the detection itself and are described in
+Section~\ref{sec:method}: hide everything that is not real code, search what is
+left, group repeated matches per line, and score the result. Names found only
+inside comments are reported separately rather than discarded, so a reviewer can
+see what the tool chose not to count.
 
-\paragraph{Stage 2, deduplication.} Redundant matches on the same line and
-family are collapsed, and names found only in masked regions are retained
-separately as informational context rather than discarded, so a reviewer can see
-what the tool chose not to count.
-
-\paragraph{Stage 3, scoring.} The surviving findings are reduced to a single
-exposure score by the model in Section~\ref{sec:scoring}.
-
-\paragraph{Stage 4, migration planning.} Findings are grouped by family and each
-group is mapped to its replacement, governing standard, affected lines and a
-language-appropriate code template. The planner emits a Solidity template where
-the artefact is Solidity and the family admits an on-chain treatment, and
-otherwise emits the off-chain pattern discussed in
-Section~\ref{sec:background}.
-
-\paragraph{Stage 5, governance artefacts.} Three outputs are derived: a
-CycloneDX inventory (Section~\ref{sec:cbom}), a report rendered against a
-regulator-specific template, and a ledger-anchored digest
+Step 4 sorts the results by algorithm group and gives, for each group, the
+replacement, the governing standard, the affected line numbers and a code
+example in the right language. For Solidity it gives the off-chain pattern of
+Section~\ref{sec:background}, because the direct replacement will not run. Step
+5 produces the three documents: the CycloneDX list (Section~\ref{sec:cbom}), a
+report in the relevant regulator's format, and the blockchain record
 (Section~\ref{sec:anchor}).
 
-% ============================================================================
 \section{Detection Method}
 \label{sec:method}
 
-\subsection{Pattern Set}
+\subsection{What We Search For}
+\label{sec:patterns}
 
-We cover five families (Table~\ref{tab:families}). Each pattern targets an
-invocation or import form rather than a bare algorithm name, which is the first
-and weakest precision measure; the mechanisms in the following subsections do
-the substantive work.
+We cover five groups of algorithms (Table~\ref{tab:families}). Each pattern
+looks for a function call or an import rather than just the algorithm's name.
+That helps a little, but it is the weakest of our accuracy measures; the two
+described after it do the real work.
 
 \begin{table}[t]
 \centering
-\caption{Algorithm families, severity assignment and replacement target.
-Severity reflects whether the primitive is broken (HIGH) or weakened (MEDIUM)
-by the adversary of Section~\ref{sec:threat}.}
+\caption{The five algorithm groups, how serious each one is, and what it should
+become. HIGH means the attacker breaks it completely; MEDIUM means it is only
+weakened.}
 \label{tab:families}
 \begin{tabular}{@{}lclp{32mm}@{}}
 \toprule
-\textbf{Family} & \textbf{Sev.} & \textbf{Replacement} & \textbf{Representative pattern} \\
+\textbf{Group} & \textbf{Level} & \textbf{Replace with} & \textbf{Example pattern} \\
 \midrule
 ECDSA      & HIGH   & ML-DSA (FIPS 204)        & \texttt{ecrecover(}, \texttt{secp256k1} \\
 RSA        & HIGH   & ML-KEM (FIPS 203)        & \texttt{RSA.}, \texttt{Crypto.PublicKey} import \\
@@ -454,242 +442,244 @@ AES\_SHORT & MEDIUM & AES-256-GCM (FIPS 197)   & \texttt{AES.new(...MODE\_}, \te
 \end{tabular}
 \end{table}
 
-A design note on word boundaries. The preliminary pattern set included
-unanchored fragments, of which a bare \texttt{dh} followed by optional
-whitespace and a period was the clearest error: it matches any identifier ending
-in those characters, so ordinary application code containing \texttt{bandwidth}
-or \texttt{width} produced spurious key-exchange findings. Anchoring patterns at
-word boundaries removes this class. The converse error is equally real and
-arises from over-anchoring: a trailing boundary on \texttt{dilithium} prevents
-matching \texttt{dilithium2}, and on \texttt{diffie\_hellman} prevents matching
-\texttt{diffie\_hellman\_exchange}, because the following character is a word
-character in both cases. Because real library and function names carry parameter
-suffixes, boundary placement must be asymmetric: leading boundary, no trailing
-boundary, for any name that admits a suffix. Both faults were present in our own
-preliminary implementation and were identified by the benchmark of
-Section~\ref{sec:benchmark}.
+A note on where patterns should start and stop, because both mistakes are easy
+to make and we made both. Our first pattern list included a bare \texttt{dh}
+followed by a dot, which matches any name ending in those letters, so ordinary
+code containing \texttt{bandwidth} was reported as Diffie--Hellman. Requiring a
+word boundary at the start fixes that. But requiring one at the \emph{end}
+breaks matching in the other direction: \texttt{dilithium} then misses
+\texttt{dilithium2}, and \texttt{diffie\_hellman} misses
+\texttt{diffie\_hellman\_exchange}, since the next character is still a letter
+or digit. Real library and function names nearly always have something
+appended, so the rule must be lopsided: boundary at the start, never at the end.
+The test set of Section~\ref{sec:benchmark} is what caught both faults.
 
-\subsection{Offset-Preserving Non-Code Masking}
+\subsection{Hiding Comments and Text Without Losing Line Numbers}
 \label{sec:masking}
 
-Algorithm names appear in comments and string literals at high density, and the
-density is highest in exactly the codebases of interest: a module undergoing
-migration documents the primitives it has removed. A detector that matches raw
-text therefore reports migration documentation as unmigrated code, which is both
-wrong and conspicuous to a reviewer.
+Algorithm names turn up in comments and text strings far more often than people
+expect, and it is worst in exactly the files we care about. A file that someone
+is in the middle of migrating usually has comments explaining which old
+algorithms were taken out. A tool that searches the raw text then reports those
+comments as unfinished work, which is both wrong and very obvious to whoever
+reads the report.
 
-The obvious remedy, deleting comments and strings before matching, destroys the
-mapping from match offset to source line, and line numbers are the output's
-principal value. We instead \emph{mask}: every character inside a comment or
-string literal is replaced by a space, while newlines are preserved. The
-resulting buffer has identical length and identical line structure to the
-original, so an offset in the masked buffer indexes the original source
-directly, and matches are confined to executable text.
+The obvious fix is to delete the comments and strings before searching. But that
+shifts every character after them, so the line numbers come out wrong, and line
+numbers are the most useful thing we produce.
 
-Alternation order matters. Triple-quoted strings and block comments must be
-consumed before single-line forms, or a line comment inside a documentation
-string terminates matching prematurely. Single-quoted and double-quoted literal
-patterns exclude newlines, which bounds the damage from an unbalanced quote to
-one line rather than allowing it to swallow the remainder of the file. We note
-that this is lexical approximation, not parsing: the construction is
-language-agnostic across the C-family and Python comment conventions we target,
-and we return to its limits in Section~\ref{sec:validity}.
+So instead of deleting, we \emph{blank out}. Every character inside a comment or
+a text string is replaced by a space, and line breaks are left alone. The result
+is a copy of the file with exactly the same length and exactly the same lines,
+but with all the prose turned into blank space. A position in this copy points
+at the same place in the original file, so line numbers stay correct while the
+search only ever sees real code.
 
-Names occurring only in masked regions are not discarded. They are reported as
-informational mentions, excluded from the count and the score. This matters for
-usability under goal G1: a reviewer who sees that the tool located
-\texttt{ECDSA} in a comment and deliberately declined to count it gains
-confidence, whereas silent omission is indistinguishable from failure to look.
+The order of the patterns matters here. Triple-quoted strings and
+\texttt{/* */} blocks have to be handled before single-line comments, otherwise
+a \texttt{//} inside a documentation string cuts the search short. And the
+patterns for single-line strings are not allowed to cross a line break, which
+means an unmatched quote can spoil at most one line instead of swallowing the
+rest of the file. This is pattern matching rather than proper parsing, and
+Section~\ref{sec:validity} says where that falls short.
 
-\subsection{Per-Line Family Deduplication}
+Names that appear only in the blanked-out parts are not simply dropped. We
+report them in a separate list, which is not counted and does not affect the
+score. This matters for goal G1: when a reviewer sees that the tool found
+\texttt{ECDSA} in a comment and deliberately chose not to count it, they trust
+the tool more. If we silently dropped it, they could not tell the difference
+between a careful decision and a tool that just did not look.
+
+\subsection{Counting One Place Once}
 \label{sec:dedup}
 
-Pattern sets of this kind necessarily overlap, because they must accommodate
-both qualified and bare invocation forms. The statement
-\texttt{hashlib.sha256(payload)} matches both the qualified pattern and the bare
-one, and the import \texttt{from ecdsa import SigningKey, SECP256k1} matches
-both the import pattern and the curve-name pattern. The naive detector emits two
-findings in each case, although the engineer visits one location.
+Pattern lists like ours always overlap, because they have to catch both the
+short and the long way of writing the same call. The line
+\texttt{hashlib.sha256(payload)} matches both the full pattern and the plain
+\texttt{sha256(} pattern. The import \texttt{from ecdsa import SigningKey,
+SECP256k1} matches both the import pattern and the curve-name pattern. A naive
+tool reports two results in each case, even though the developer only has one
+place to go and fix.
 
-We collapse matches that share an algorithm family and a line number, retaining
-the longest matched text on the grounds that it is the most specific description
-of the call site. Family is part of the key rather than being collapsed away: a
-line that genuinely invokes two different families, such as an ECDSA signature
-over a SHA-256 digest, legitimately produces two findings because it requires
-two distinct remediations.
+So we group results that share both the same algorithm group and the same line
+number, keeping the longest matched text because that describes the call most
+precisely. We deliberately keep the algorithm group as part of the grouping key.
+A line that really does use two different algorithms, such as an ECDSA signature
+over a SHA-256 hash, should produce two results, because it needs two separate
+fixes.
 
-This is a correctness fix and not merely cosmetic, since the raw count
-propagates into the score, the remediation estimate and any reported totals. On
-our benchmark the mechanism reduces 38 raw matches to 26, and the residual
-difference between 26 and the 19 labelled findings is accounted for entirely by
-the hard-negative artefacts, where the correct count is zero.
+This is a correctness fix, not just tidying up, because the raw count feeds into
+the risk score, the effort estimate and every total we print. On our test set
+this step reduces 38 raw matches down to 26, and the gap between 26 and the 19
+marked locations is entirely explained by the trick files, where the right
+answer is zero.
 
-\subsection{A Non-Saturating Exposure Score}
+\subsection{A Risk Score That Separates Files}
 \label{sec:scoring}
 
-The preliminary version of this system scored an artefact by summing severity
-weights and capping the result at 100, with high findings weighted 30. The
-consequence is immediate: four high-severity findings reach 120, so every
-artefact containing four or more of them scores exactly 100 regardless of size,
-breadth or density. Across the scan records accumulated during development the
-mean score was 99.5, with effectively no variance. A metric that assigns the
-same value to every input carries no information, and because the score is the
-figure that appears on compliance documentation, the defect is consequential
-rather than academic.
+Our earlier version scored a file by adding up severity points, 30 for each
+serious finding, and capping the result at 100. The problem shows up
+immediately: four serious findings already add up to 120, so any file with four
+or more of them scores exactly 100 no matter how big it is or how many different
+algorithms it uses. Across the scans we collected while building the tool, the
+average score was 99.5, with almost no variation. A score that gives nearly
+every file the same number tells you nothing, and since this number is printed
+on compliance reports, that is a real problem rather than an academic one.
 
-We replace it with a bounded combination of three signals that vary
-independently:
+We replaced it with a combination of three things that vary independently of
+each other:
 
 \begin{equation}
 S = \min\!\left(100,\;
-\underbrace{\max_{f \in F} \sigma(f)}_{\text{severity} \le 60} +
-\underbrace{\min(20,\, 5(|A| - 1))}_{\text{breadth} \le 20} +
-\underbrace{20\left(1 - e^{-\rho/5}\right)}_{\text{density} \le 20}
+\underbrace{\max_{f \in F} \sigma(f)}_{\text{how serious,} \le 60} +
+\underbrace{\min(20,\, 5(|A| - 1))}_{\text{how many kinds,} \le 20} +
+\underbrace{20\left(1 - e^{-\rho/5}\right)}_{\text{how dense,} \le 20}
 \right)
 \label{eq:score}
 \end{equation}
 
-\noindent where $F$ is the set of findings, $\sigma$ maps severity to a base
-value ($\text{HIGH} \mapsto 60$, $\text{MEDIUM} \mapsto 35$,
-$\text{LOW} \mapsto 15$), $A$ is the set of distinct families present, and
-$\rho = 100|F| / L$ is findings per hundred lines for an artefact of $L$ lines.
+\noindent Here $F$ is the set of findings and $\sigma$ turns a severity level
+into points ($\text{HIGH} \mapsto 60$, $\text{MEDIUM} \mapsto 35$,
+$\text{LOW} \mapsto 15$). $A$ is the set of different algorithm groups found,
+and $\rho = 100|F| / L$ is the number of findings per hundred lines in a file of
+$L$ lines.
 
-The three terms answer different questions: whether anything is outright broken,
-how widely the exposure is distributed, and how concentrated it is. The density
-term uses an exponential with diminishing returns so that a dense artefact is
-distinguished from a sparse one without a single pathological file dominating.
-The score is monotonic in all three inputs and reaches 100 only for an artefact
-that is both broadly and densely affected. We make no claim that the weights are
-optimal; they are chosen so the score is interpretable and discriminating, and
-Section~\ref{sec:validity} notes that their calibration against expert judgement
-remains open.
+Each part answers a different question: is anything completely broken, how many
+different algorithms are involved, and how concentrated the problem is. The
+third part uses an exponential curve so that a file packed with findings scores
+higher than a sparse one, without one unusual file running away with the whole
+scale. The score always goes up when any of the three inputs goes up, and only
+a file that is both widespread and dense gets close to 100. We are not claiming
+these weights are the best possible ones. They were chosen so the score is
+understandable and tells files apart; Section~\ref{sec:validity} notes that
+checking them against expert opinion is still to be done.
 
 % ============================================================================
 \section{Implementation}
 \label{sec:impl}
 
-\subsection{Reference Implementation}
+\subsection{The Main Version}
 
-The reference implementation is Python, exposed through a FastAPI service of
-twelve endpoints covering scanning, migration planning, report generation,
-inventory export, certificate issuance and ledger anchoring. Analysis state is
-file-backed rather than held in a database, which keeps deployment minimal at
-the cost of concurrent-access guarantees; we regard this as appropriate for an
-assessment tool invoked per artefact.
+The main version is written in Python and exposed through a FastAPI web service
+with twelve endpoints, covering scanning, migration planning, report
+generation, the CycloneDX export, certificate issuing and blockchain
+recording. Results are stored as files on disk rather than in a database, which
+keeps the setup simple at the cost of handling many users at once. For a tool
+that is run once per file, we think that is the right trade.
 
-Two deployment faults found during hardening are worth recording, since both are
-common in research prototypes. The ledger client was constructed at import time,
-so an absent signing key prevented the entire service from starting rather than
-disabling one feature; it is now constructed lazily and only the anchoring
-endpoints degrade. And the anchoring endpoint, which spends funds from a
-server-held key, was initially unauthenticated, making it an open relay against
-the operator's own balance. The architecture of Section~\ref{sec:anchor}
-eliminates the underlying hazard rather than guarding it.
+Two bugs we found while hardening it are worth writing down, because both are
+common in research prototypes. First, the blockchain client was created when
+the program started, so a missing signing key stopped the whole service from
+running instead of just disabling one feature; it is now created only when
+first needed, and only the blockchain endpoints fail without it. Second, the
+endpoint that writes to the blockchain, which spends real funds from a key held
+on the server, had no authentication at all, so anyone who found the URL could
+drain the operator's balance. The design in Section~\ref{sec:anchor} removes
+that danger completely rather than just putting a lock on it.
 
-\subsection{Dual Runtime and Verified Equivalence}
+\subsection{The Same Tool Twice, Checked to Match}
 \label{sec:dualruntime}
 
-Goal G3 requires that an organisation be able to assess proprietary ledger code
-without transmitting it. Since detection is lexical, it has no server-side
-dependency, so we additionally implemented the full detection path in
-JavaScript. The browser runtime reads files through the local file API, performs
-masking, matching, deduplication and scoring in the page, and renders the
-reports and inventory client-side. No source leaves the machine.
+Goal G3 says a company should be able to check its private code without sending
+it anywhere. Since our detection is just pattern matching on text, it does not
+need a server at all, so we wrote the whole detection path a second time in
+JavaScript. This version reads the file using the browser's own file API, does
+the blanking, searching, grouping and scoring inside the page, and builds the
+reports and the CycloneDX list there too. Nothing is uploaded.
 
-Maintaining two implementations of the same method invites divergence, which
-would be a serious defect: the evaluated implementation and the deployed one
-would differ. We therefore treat equivalence as a verified property. A harness
-executes the JavaScript detection module outside the browser and compares its
-output against the Python implementation across the full benchmark on six
-fields: the finding set as (line, family) pairs, the finding count, the
-informational-mention set, the detected post-quantum algorithms, the exposure
-score and the line count. All seven artefacts agree on all six fields. The check
-is mechanical and is intended to be run whenever the pattern set changes.
+Keeping two copies of the same logic invites them to drift apart, which would be
+a serious problem: the version we measured and the version people actually use
+would no longer be the same tool. So we treat matching as something to check
+rather than hope for. A test script runs the JavaScript detection code outside
+the browser and compares it against the Python version on all seven test files,
+checking six things: the set of findings as (line, algorithm) pairs, the number
+of findings, the list of comment-only mentions, which post-quantum algorithms
+were spotted, the risk score and the line count. All seven files agree on all
+six. The check is automatic and is meant to be run whenever the patterns change.
 
-\subsection{Cryptographic Bill of Materials}
+\subsection{The Machine-Readable Inventory}
 \label{sec:cbom}
 
-Each assessment exports a CycloneDX 1.6~\cite{cyclonedx} document in which every
-distinct family present becomes one \texttt{cryptographic-asset} component
-carrying its primitive class, severity, occurrence count, affected lines,
-recommended replacement and governing standard. Using the standard schema rather
-than a bespoke report format allows the output to enter existing supply-chain
-review processes, and allows an organisation to track cryptographic exposure
-across releases with tools it already operates.
+Every scan can be exported as a CycloneDX 1.6~\cite{cyclonedx} document, where
+each algorithm group found becomes one \texttt{cryptographic-asset} entry
+carrying its kind, its severity, how many times it appears, which lines it is
+on, the recommended replacement and the standard that governs it. Using the
+standard format instead of our own means the output can go straight into the
+supply-chain review tools a company already runs, and lets them track their
+cryptography from one release to the next.
 
-\subsection{Non-Custodial Ledger Anchoring}
+\subsection{Recording the Result Without Holding Any Keys}
 \label{sec:anchor}
 
-Goal G4 requires that an assessment be independently verifiable. We serialise
-the assessment metadata --- identifier, organisation, timestamp, finding count
-and score --- compute its Keccak-256 digest, and record the digest through a
-registry contract on the Ethereum Sepolia testnet. The ledger supplies ordering
-and tamper evidence: a party holding the assessment can recompute the digest and
-confirm both that it matches and when it was recorded, without trusting the
-assessor. Only the digest is published, so no source material is disclosed.
+Goal G4 says someone else must be able to check a report is genuine. We take the
+scan's details --- its identifier, the company, the time, the number of findings
+and the score --- compute a Keccak-256 hash of them, and write that hash to a
+small registry contract on the Ethereum Sepolia test network. The blockchain
+supplies the two things we need: proof the record has not been altered, and
+proof of when it was made. Anyone holding the report can recompute the hash and
+check it matches, without having to trust whoever ran the scan. Only the hash
+goes on-chain, so no source code is revealed.
 
-The signing arrangement matters more than it may appear. A server-side key, as
-in our preliminary version, makes the operator a custodian: the key must be
-funded, protected and rotated, and any endpoint that uses it is a potential
-drain on the operator's balance. We instead have the transaction signed by the
-assessing party's own wallet in the browser. The service holds no key, there is
-nothing to drain, and the resulting record is attributable to the party that
-actually performed the assessment, which is a stronger provenance property than
-a shared service key provides.
+How the transaction gets signed matters more than it first appears. With a key
+held on the server, as in our earlier version, the operator becomes a custodian:
+the key has to be funded, protected and rotated, and every endpoint that uses it
+is a way to drain the balance. Instead, we have the transaction signed by the
+wallet of whoever is running the scan, in their own browser. The service holds
+no key, so there is nothing to steal and nothing to drain, and the record is
+tied to the party that actually did the scan. That is stronger proof of who did
+what than a single shared service key could give.
 
-% ============================================================================
 \section{Evaluation}
 \label{sec:eval}
 
-\subsection{Benchmark Construction}
+\subsection{How We Built the Test Set}
 \label{sec:benchmark}
 
-We constructed a labelled benchmark of seven source artefacts. A label marks an
-\emph{active call site} of a quantum-vulnerable primitive, recorded as a (line,
-family) pair; a prediction counts as a true positive only when both components
-match. This is deliberately strict, because a finding that names the right
-family on the wrong line does not tell an engineer where to work.
+We built a test set of seven source files and marked by hand every place where
+quantum-weak cryptography is actually used. Each mark records a line number and
+an algorithm group. The tool only gets credit for a result if both of these
+match. We chose this strict rule on purpose: telling a developer the right
+algorithm but the wrong line does not help them do the work.
 
-The labelling policy is fixed in advance and released with the data. Import
-statements are labelled, since an import of a vulnerable primitive is part of
-the migration surface. Call sites are labelled. A function definition naming a
-primitive is labelled when its body implements that primitive. Occurrences in
-comments, documentation strings and string literals are not labelled. Nor are
-identifiers that merely contain a primitive name as a substring.
+We wrote the marking rules down before marking anything, and we release them
+with the data. Imports count, because importing a weak algorithm is part of what
+has to be migrated. Function calls count. A function definition counts if its
+body implements the algorithm. Mentions inside comments, documentation strings
+and text strings do not count. Names that merely contain an algorithm name
+inside them do not count either.
 
-Four artefacts are positive cases: a Solidity consent registry using
-\texttt{ecrecover} and \texttt{keccak256}; a Python settlement signer combining
+Four of the files contain real problems: a Solidity consent registry using
+\texttt{ecrecover} and \texttt{keccak256}; a Python settlement signer using
 ECDSA, RSA, SHA-256, short-key AES and a Diffie--Hellman exchange; a Python key
-service; and a hybrid Solidity contract in which an ML-DSA path has been added
-while the legacy \texttt{ecrecover} path remains live. The hybrid case tests
-that a partially migrated artefact still reports its residual classical
-exposure, which is the common real-world state.
+service; and a half-migrated Solidity contract where an ML-DSA path has been
+added but the old \texttt{ecrecover} path is still live. That last one matters
+because half-migrated code is the normal real-world state, and the tool has to
+still report what is left.
 
-Three artefacts carry zero labels and constitute the hard-negative component.
-The first is a fully post-quantum module importing \texttt{dilithium2} and
-\texttt{kyber512} and hashing with SHA-384. The second documents a completed
-migration in prose, naming \texttt{RSA.generate}, \texttt{hashlib.sha256},
-\texttt{ECDSA.sign}, \texttt{Diffie-Hellman} and \texttt{ecrecover} across
-comments, a documentation string and a literal, while invoking none of them. The
-third contains identifiers such as \texttt{bandwidth},
+The other three files contain nothing to find, and they are there to try to
+trick the tool. The first is fully post-quantum code importing
+\texttt{dilithium2} and \texttt{kyber512} and hashing with SHA-384. The second
+describes a finished migration in prose, mentioning \texttt{RSA.generate},
+\texttt{hashlib.sha256}, \texttt{ECDSA.sign}, \texttt{Diffie-Hellman} and
+\texttt{ecrecover} across comments, a documentation string and a text string,
+while calling none of them. The third contains names like \texttt{bandwidth},
 \texttt{sha256\_cache\_enabled}, \texttt{rsa\_config\_path} and
-\texttt{ecdsa\_feature\_flag}, none of which is cryptographic. Each negative
-targets one of the three error classes discussed in Section~\ref{sec:method}.
-The benchmark totals nineteen labelled findings.
+\texttt{ecdsa\_feature\_flag}, none of which has anything to do with
+cryptography. Each of the three targets one of the three mistakes described in
+Section~\ref{sec:method}. In total the test set has nineteen marked locations.
 
-\subsection{Ablation Design}
+\subsection{The Three Versions We Compare}
 
-We score three configurations to attribute the improvement to specific
-mechanisms:
+To show which fix does what, we run the tool in three versions:
 
 \begin{itemize}
-  \item \textbf{v1-baseline}: the preliminary pattern set, matched against raw
-  text, without deduplication. This is a real prior configuration of this
-  system, retained verbatim, not a reconstruction.
-  \item \textbf{v2-boundaries}: the revised, word-anchored pattern set, still
-  matched against raw text without deduplication.
-  \item \textbf{v3-full}: the revised pattern set with offset-preserving masking
-  and per-line deduplication. This is the shipped configuration.
+  \item \textbf{v1-baseline}: our original pattern list, searching the raw text,
+  with no grouping. This is a real earlier version of the tool, kept exactly as
+  it was, not something we rebuilt afterwards to look bad.
+  \item \textbf{v2-boundaries}: the corrected pattern list with word boundaries,
+  still searching raw text with no grouping.
+  \item \textbf{v3-full}: the corrected patterns plus comment blanking plus
+  per-line grouping. This is the version we ship.
 \end{itemize}
 
 \subsection{Results}
@@ -697,12 +687,12 @@ mechanisms:
 
 \begin{table}[t]
 \centering
-\caption{Ablation over three detector configurations. Seven artefacts, nineteen
-labelled findings. ``Raw hits'' is total pattern matches before collapsing.}
+\caption{The three versions compared. Seven files, nineteen marked locations.
+``Raw hits'' is the total number of pattern matches before grouping.}
 \label{tab:ablation}
 \begin{tabular}{@{}lrrrrrrr@{}}
 \toprule
-\textbf{Configuration} & \textbf{TP} & \textbf{FP} & \textbf{FN} &
+\textbf{Version} & \textbf{TP} & \textbf{FP} & \textbf{FN} &
 \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{Raw hits} \\
 \midrule
 v1-baseline   & 19 & 11 & 0 & 0.633 & 1.000 & 0.776 & 39 \\
@@ -712,277 +702,263 @@ v3-full       & 19 &  0 & 0 & \textbf{1.000} & 1.000 & \textbf{1.000} & 26 \\
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:ablation} reports the ablation. Three observations follow.
+Table~\ref{tab:ablation} shows the comparison. Three things stand out.
 
-First, recall is unaffected throughout. The precision mechanisms do not suppress
-genuine call sites, which is the property that must hold for them to be
-acceptable --- a precision gain purchased with recall would be a poor trade in a
-security inventory.
+First, recall stays at 1.000 the whole way through. Our fixes never hide a real
+problem. This is the thing that had to be true for them to be worth having: in a
+security tool, buying accuracy by missing real cases would be a bad trade.
 
-Second, word anchoring alone does not improve precision on this benchmark. The
-v2 configuration removes one raw match relative to v1 but eliminates no false
-positive. This is informative: the substring-identifier error class that
-anchoring targets is real, and our false-friend artefact was written to exercise
-it, but on this data the dominant error source is comment and string matching,
-which anchoring does not address. Reporting this negative result matters, since
-boundary anchoring is the intuitive first remedy and is insufficient alone.
+Second, adding word boundaries on its own did not help at all. Version v2
+removes one raw match compared with v1, but it does not remove a single false
+positive. This is worth reporting rather than hiding. The mistake that word
+boundaries fix is real, and we wrote a file specifically to trigger it, but on
+this data almost all the damage comes from matching comments, which word
+boundaries do nothing about. We mention it because adding word boundaries is the
+obvious first thing to try, and on its own it is not enough.
 
-Third, masking together with deduplication eliminates all eleven false
-positives. The eleven comprise matches inside comments and documentation strings
-in both positive and negative artefacts, and duplicate matches on shared call
-sites. Per-family results are uniform at 1.000 precision and recall across
-ECDSA (4 findings), RSA (4), SHA-256 (8), Diffie--Hellman (2) and short-key AES
+Third, blanking comments together with per-line grouping removes all eleven
+false positives. Those eleven are matches inside comments and documentation
+strings, in both the real files and the trick files, plus duplicate matches on
+the same line. Broken down by algorithm, precision and recall are both 1.000 for
+ECDSA (4 locations), RSA (4), SHA-256 (8), Diffie--Hellman (2) and short-key AES
 (1).
 
-\paragraph{What these numbers do and do not establish.} The absolute scores must
-not be read as a field accuracy estimate, and we state the reason plainly. The
-benchmark is small, at seven artefacts and nineteen findings, and it was
-authored alongside the detector by its developers. Under those conditions
-perfect scores on the final configuration are close to a construction artefact:
-the negatives were written to exercise error classes we had already decided to
-address. What the table does establish is narrower and still useful --- that
-each mechanism removes the error class it targets, that the removal is complete
-on data designed to be adversarial for a lexical detector, and that recall does
-not pay for it. The appropriate reading is the \emph{delta}, from 0.633 to
-1.000, under an ablation that isolates the cause. An independent estimate
-requires a corpus the detector's authors did not construct, which we identify as
-the primary item of future work in Section~\ref{sec:future}.
+\paragraph{What these numbers do and do not prove.} The scores should not be
+read as how accurate the tool is on real code, and the reason is simple. The
+test set is small, at seven files and nineteen locations, and we wrote it
+ourselves while building the tool. Under those conditions, a perfect score for
+our final version is close to being guaranteed by construction: we wrote the
+trick files to catch mistakes we had already decided to fix. What the table does
+show is narrower but still worth having: each fix removes the mistake it was
+meant to remove, it removes it completely even on data designed to be awkward,
+and nothing real is lost in the process. The number to look at is the
+\emph{change}, from 0.633 to 1.000, under a comparison that shows which fix
+caused it. Getting a real accuracy figure needs a test set we did not write
+ourselves, which is the main piece of future work in Section~\ref{sec:future}.
 
-Sample size compounds the point. Nineteen labelled positives support a Wilson
-95\% interval on precision of only $[0.832, 1.000]$ even when every one is
-correct, and the per-family figures are weaker still: the single short-key AES
-finding yields $[0.207, 1.000]$, which is to say nothing at all about that
-family. We therefore do not claim a precision level from this benchmark, only a
-difference between configurations measured on the same data. Reaching an
-interval tight enough to support a claim above 0.95 requires on the order of
-150 labelled positives, which sets the scale of the corpus described in
+The small size makes this worse in a second way. Even with all nineteen correct,
+nineteen results only support a 95\% confidence range for precision of
+$[0.832, 1.000]$. Per algorithm it is far weaker: the single short-key AES
+location gives $[0.207, 1.000]$, which tells us essentially nothing about that
+algorithm. So we do not claim a particular level of accuracy from this test set,
+only a difference between the three versions measured on the same data. To
+narrow the range enough to claim accuracy above 0.95, we would need roughly 150
+marked locations, which is what sets the size of the test set described in
 Section~\ref{sec:future}.
 
-\subsection{Score Discrimination}
+\subsection{Does the New Score Tell Files Apart?}
 
 \begin{table}[t]
 \centering
-\caption{Exposure scores for every benchmark artefact under both models. The
-severity-sum model ties the two most heavily affected artefacts at exactly
-100.0; the three-term model assigns four distinct values.}
+\caption{Risk scores for every test file under both scoring methods. The old
+method gives the two worst files exactly the same number; the new one separates
+all four.}
 \label{tab:scores}
 \begin{tabular}{@{}lrrrrr@{}}
 \toprule
-\textbf{Artefact} & \textbf{Find.} & \textbf{Fam.} & \textbf{Lines} &
-\textbf{Severity-sum} & \textbf{Three-term} \\
+\textbf{File} & \textbf{Found} & \textbf{Kinds} & \textbf{Lines} &
+\textbf{Old score} & \textbf{New score} \\
 \midrule
 Python settlement signer  & 9 & 4 & 108 & 100.0 & 91.2 \\
 Python key service        & 5 & 4 &  26 & 100.0 & 94.6 \\
 Solidity consent registry & 3 & 2 &  81 &  60.0 & 75.5 \\
-Hybrid Solidity contract  & 2 & 2 &  32 &  45.0 & 79.3 \\
+Half-migrated contract    & 2 & 2 &  32 &  45.0 & 79.3 \\
 Post-quantum module       & 0 & 0 &  39 &   0.0 &  0.0 \\
 Prose-only module         & 0 & 0 &  23 &   0.0 &  0.0 \\
-False-friend module       & 0 & 0 &  38 &   0.0 &  0.0 \\
+Trick-names module        & 0 & 0 &  38 &   0.0 &  0.0 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:scores} contrasts the two scoring models across the whole
-benchmark. Saturation appears exactly where the analysis of
-Section~\ref{sec:scoring} predicts: the two artefacts whose weighted severity
-sum exceeds the cap both receive 100.0, and the model therefore cannot
-distinguish a 9-finding, 108-line artefact from a 5-finding, 26-line one even
-though the second is more than twice as densely affected. The 19 scan records
-accumulated during development show the same effect at greater scale, with a
-mean of 99.5 and almost no variance, because artefacts drawn from real
-deployments routinely exceed four high-severity findings. The three-term model
-assigns four distinct values to the four vulnerable artefacts and preserves zero
-across all three negatives.
+Table~\ref{tab:scores} compares the two scoring methods on every test file. The
+problem we predicted in Section~\ref{sec:scoring} shows up exactly where
+expected: the two files whose severity points go past the cap both get 100.0, so
+the old method cannot tell apart a file with 9 findings in 108 lines from one
+with 5 findings in 26 lines, even though the second is more than twice as
+densely affected. The 19 scans we collected while building the tool show the
+same thing on a larger scale, with an average of 99.5 and almost no variation,
+because real files routinely have more than four serious findings. The new
+method gives four different numbers to the four affected files, and correctly
+gives zero to all three clean ones.
 
-Two properties of the new model deserve comment rather than concealment. First,
-on small artefacts it can return a \emph{higher} score than the severity sum:
-the hybrid contract rises from 45.0 to 79.3 because two live high-severity
-families in 32 lines is genuinely dense exposure, which a count-based sum
-understates. Second, the ordering is not by finding count. The key service
-scores above the settlement signer despite having fewer findings, because the
-density term dominates at 19.2 findings per hundred lines against 8.3. This is
-the intended behaviour --- a small file that is almost entirely vulnerable
-warrants more urgency than a large file with scattered call sites --- but it
-means the score must be read as exposure concentration rather than as a count
-proxy.
+Two things about the new score are worth pointing out rather than hiding. First,
+on small files it can give a \emph{higher} number than the old one: the
+half-migrated contract goes up from 45.0 to 79.3, because two live serious
+problems inside 32 lines really is dense exposure, which simply counting
+findings understates. Second, the order is not the order of finding counts. The
+key service scores above the settlement signer despite having fewer findings,
+because the density part dominates: 19.2 findings per hundred lines against 8.3.
+This is what we intended --- a small file that is almost entirely affected needs
+attention sooner than a big file with a few scattered calls --- but it does mean
+the score should be read as how concentrated the problem is, not as a stand-in
+for how many findings there are.
 
-We emphasise that this demonstrates \emph{discrimination}, not \emph{validity}.
-We show the new model separates artefacts the old one could not, and that its
-behaviour follows from stated terms rather than from a cap artefact. We have not
-established that its ordering matches expert risk judgement, which would require
-a ranking study we have not conducted and which we identify in
-Section~\ref{sec:future}.
+We should be clear about what this does and does not show. It shows the new
+score tells files apart where the old one could not, and that its behaviour
+follows from the three parts we defined rather than from hitting a cap. It does
+not show that its ordering matches what a security expert would say, which would
+need a ranking study we have not done. Section~\ref{sec:future} lists this.
 
-\subsection{Runtime Equivalence}
+\subsection{Do Both Versions Agree?}
 
-The equivalence harness reports agreement between the Python and JavaScript
-implementations on all seven artefacts across all six compared fields. The
-deployed browser runtime therefore carries the measured behaviour of the
-evaluated reference implementation rather than an approximation of it. We regard
-this as a necessary condition for reporting evaluation results obtained from one
-implementation while deploying another.
+The checking script reports that the Python and JavaScript versions agree on all
+seven test files, across all six things it compares. So the browser version that
+people actually use behaves exactly like the version we measured, rather than
+approximately like it. We think this is a necessary condition for reporting
+results from one version while shipping another.
 
 % ============================================================================
 \section{Discussion}
 \label{sec:discussion}
 
-\subsection{Regulatory Alignment}
+\subsection{Fitting Existing Regulations}
 
-The outputs map onto obligations that regulated Indian entities already carry.
-The RBI cybersecurity framework requires regulated entities to maintain
-awareness of cryptographic exposure and to document remediation; CERT-In
-directions impose incident and asset reporting duties for which a cryptographic
-inventory is a prerequisite. Internationally, NIST's transition
-guidance~\cite{nistir8547} sets deprecation dates against which an organisation
-must be able to demonstrate progress, and ISO/IEC 27001 Annex A controls on
-cryptography require a documented policy and its evidence.
+What the tool produces lines up with obligations Indian companies already have.
+The RBI cybersecurity framework requires regulated companies to know what
+cryptography they are using and to document how they are fixing problems.
+CERT-In's directions require reporting on assets and incidents, which you cannot
+do without knowing what cryptography you have. Internationally, NIST's
+timetable~\cite{nistir8547} sets dates by which the old algorithms are no longer
+allowed, so companies need to be able to show progress against it, and ISO/IEC
+27001 requires a written cryptography policy and evidence that it is followed.
 
-The combination of a dated, tamper-evident digest and a standards-conformant
-inventory addresses a specific difficulty in this setting: demonstrating
-\emph{when} an assessment was performed to a party that was not present. The
-ledger record provides that without requiring the verifier to trust the
-assessor, and without disclosing the assessed source.
+Together, the dated blockchain record and the standard-format inventory solve
+one specific awkward problem: proving \emph{when} a check was done to somebody
+who was not there at the time. The blockchain record does this without the other
+party having to trust the company, and without revealing any source code.
 
-\subsection{Sector Applicability}
+\subsection{Which Industries Should Worry First}
 
-The exposure profile differs by sector in ways that affect prioritisation.
-Pharmaceutical and manufacturing deployments typically use ledgers for batch
-provenance, where signatures authenticate custody transfer; a forged historical
-signature corrupts a provenance chain that regulators rely on. Healthcare
-deployments anchor consent and record integrity, where the retroactive threat is
-acute because the confidentiality requirement extends over a patient's lifetime
-and beyond. Financial deployments carry the shortest secrecy lifetimes but the
-largest immediate value at risk, and the most explicit supervisory expectations.
-Under Mosca's inequality~\cite{mosca2018} the first two categories are more
-urgent than their current attention would suggest, since their secrecy lifetimes
-are the longest.
+How much risk a company carries depends on what it uses its blockchain for.
+Pharmaceutical and manufacturing companies track batches through a supply chain,
+where signatures prove custody, so a forged old signature corrupts a record
+regulators depend on. Healthcare anchors consent and patient records, where the
+backwards-looking threat is worst because the data must stay confidential for a
+lifetime. Financial companies have shorter confidentiality needs but more money
+at immediate risk. By Mosca's rule~\cite{mosca2018} the first two are more
+urgent than the attention they currently get, because their secrets must last
+longest.
 
-\subsection{Limitations and Threats to Validity}
+\subsection{What the Tool Cannot Do}
 \label{sec:validity}
 
-We separate limitations of the method from limitations of the evaluation.
+We separate the limits of the method from the limits of our testing.
 
-\paragraph{Method.} Detection is lexical. It identifies cryptographic API usage
-and cannot determine whether a correctly named primitive is used correctly, nor
-follow indirection: a project that wraps ECDSA behind a generic
-\texttt{sign()} facade in one module and calls that facade elsewhere yields one
-finding at the wrapper, not at every caller. For migration planning this is
-often the desired behaviour, since the wrapper is the correct place to change,
-but it understates the blast radius. Dynamically constructed algorithm
-selection, dependency-supplied cryptography, and compiled artefacts are all
-outside scope. Masking is lexical approximation rather than parsing, so
-constructs such as nested or unconventional string delimiters can mask
-imprecisely; we bound the damage by forbidding single-line literal patterns from
-crossing newlines, but a parser-based implementation per language would be
-strictly more accurate.
+\paragraph{The method.} Our detection works on text. It finds where a
+cryptography library is called, but it cannot tell whether a correctly-named
+algorithm is being used correctly, and it cannot follow calls between functions.
+If a project wraps ECDSA inside its own \texttt{sign()} function and then calls
+that from twenty places, we report one result at the wrapper, not twenty. For
+planning a migration that is often what you want, since the wrapper is the right
+place to change, but it does understate how much of the system is affected.
+Algorithms chosen at run time, cryptography coming from a dependency, and
+compiled code are all outside what we handle. The comment blanking is pattern
+matching rather than real parsing, so unusual or nested string delimiters can
+confuse it; we limit the damage by not letting single-line string patterns cross
+a line break, but a proper parser for each language would be strictly better.
 
-\paragraph{Evaluation.} Three threats to validity apply, in decreasing order of
-seriousness. \emph{Construct validity}: the benchmark was authored by the
-detector's own developers, so the negatives test error classes we had already
-chosen to address, and the v3 scores are correspondingly optimistic. This is the
-dominant limitation of the present evaluation and we do not minimise it.
-\emph{External validity}: seven artefacts of a few dozen lines each cannot
-represent production ledger codebases, which are larger, use more libraries, and
-contain idioms we have not anticipated. \emph{Internal validity}: the exact
-(line, family) matching criterion is strict and defensible, but a tool reporting
-a finding one line from the label is scored as both a false positive and a false
-negative, which penalises near-misses more heavily than an engineer would.
+\paragraph{Our testing.} Three problems apply, in order of how serious they are.
+\emph{We wrote the test set}: the trick files target mistakes we had already
+decided to fix, so the v3 scores are optimistic. This is the biggest weakness of
+the evaluation and we are not going to play it down. \emph{The test set is small
+and artificial}: seven files of a few dozen lines each cannot stand in for real
+blockchain projects, which are bigger, use more libraries, and contain patterns
+we have not thought of. \emph{The matching rule is harsh}: requiring both the
+line and the algorithm to match exactly is defensible, but a result one line
+away from the mark counts as both a false positive and a miss, which punishes
+near-misses harder than a developer would.
 
-\paragraph{Scope of the artefacts.} The ledger anchoring uses a testnet, so the
-records carry no economic finality; a production deployment would use a mainnet
-or a permissioned ledger. Certificate issuance is backed by a local registry
-rather than a public verification service, so a certificate is currently
-evidence of an assessment rather than an independently resolvable credential.
+\paragraph{The rest of the system.} The blockchain records go on a test network,
+so they have no real economic weight; a production deployment would use the main
+network or a private one. Certificates are tracked in a local file rather than a
+public service, so right now a certificate is evidence that a check was done
+rather than something anyone can independently look up.
 
-\subsection{Ethical Considerations}
+\subsection{Could This Tool Help an Attacker?}
 
-A tool that locates cryptographic weakness is dual-use, and we considered this
-in its design. The exposure it reports is not secret: the vulnerability of ECDSA
-to Shor's algorithm is public, and the public keys at issue are already on
-public ledgers, so an adversary gains no information from our output that they
-could not obtain directly. The asymmetry favours defenders, who must find every
-site, over attackers, who need only one. We therefore judge publication net
-beneficial. Two design decisions follow from the same reasoning: the browser
-runtime means an organisation need not disclose source to a third party to be
-assessed, and only digests, never source or findings, are published to the
-ledger. We also consider it an ethical requirement that the tool not overstate
-its own assurance, which is why certificate issuance is refused while any
-finding remains and why the reports carry the method's limitations in the
-document itself.
+A tool that points out weak cryptography can obviously be misused. But the
+weakness it reports is not secret: that ECDSA falls to Shor's algorithm is
+public knowledge, and the keys in question are already on public blockchains, so
+an attacker learns nothing they could not get directly. The balance favours
+defenders, who must find every place, over attackers, who need only one. Two
+design choices follow: the browser version means a company never hands its
+source to anyone, and only hashes go on-chain, never code or findings. The tool
+also refuses to issue a certificate while any finding remains, and its reports
+state the method's limits inside the document.
 
-% ============================================================================
 \section{Future Work}
 \label{sec:future}
 
-The clear priority is an independent evaluation corpus, and we have implemented
-and released the harness for it so that the protocol is fixed before any data is
-collected rather than chosen afterwards. It operates in three stages, with the
-separation between them doing the methodological work.
+The most important thing to do next is to test the tool on code we did not
+write, and we have already built and released the machinery for it so that the
+method is fixed in advance rather than decided afterwards once we have seen the
+results. It works in three steps, and keeping the steps apart is what makes it
+trustworthy.
 
-Stage one draws contracts from creation transactions in randomly chosen blocks
-within a recent range, retains those with verified source, and generates
-\emph{candidate lines} for human adjudication. Candidate generation is
-deliberately cruder than the detector --- bare case-insensitive substrings, no
-word boundaries, no masking, no deduplication --- so that the candidate set is a
-strict superset of anything the detector can report. This is what makes detector
-false negatives measurable: a call site the detector misses is still presented to
-the annotator. Stage three verifies the superset property holds and raises a
-harness error if any detector finding falls outside the candidate set.
+Step one picks random recent blocks, finds the transactions that created
+contracts, keeps those with published source, and produces a list of
+\emph{candidate lines} for a person to judge. The search that picks candidates is
+deliberately worse than our detector: plain text fragments, no word boundaries,
+no comment blanking, no grouping. That makes the candidate list a strict
+superset of everything our detector could report, which is what lets us measure
+the cases it \emph{misses} as well as the ones it gets wrong. Step three checks
+that this superset property actually holds.
 
-Stage two presents each candidate with surrounding context and records what the
-line actually invokes. The annotation tool does not import the detector and
-never displays its prediction, because an annotator shown a prediction produces
-labels that inherit the detector's biases, and the resulting accuracy figure
-would be circular. Two annotators label independently, and disagreements are
-excluded from the primary score rather than resolved by majority vote, which
-would manufacture confidence the data does not support.
+Step two shows a person each candidate line with its surrounding lines and asks
+what that line really does. The tool does not load our detector and never shows
+its prediction. This is the crucial part: somebody who can see a prediction
+tends to agree with it, so the labels would copy the detector's mistakes and the
+accuracy figure would be meaningless. Two people label independently, and where
+they disagree we drop the line rather than taking a majority vote, which would
+invent confidence the data does not support.
 
-Stage three reports Cohen's $\kappa$ between annotators alongside precision,
-recall and $F_1$ per family with Wilson intervals. We treat $\kappa$ as a gate
-rather than as a statistic to report in passing: a value below roughly 0.6 would
-indicate that our labelling policy is ambiguous, in which case the policy must be
-revised and the corpus relabelled before any accuracy figure is quoted.
+Step three reports agreement between the two people using Cohen's $\kappa$,
+along with precision, recall and $F_1$ per algorithm with confidence intervals.
+We treat $\kappa$ as a pass-or-fail gate. Below about 0.6 means our marking
+rules are unclear, and the right response is to rewrite them and mark again, not
+to publish the accuracy figures anyway.
 
-Three further directions follow. Replacing lexical masking with per-language
-parsing would eliminate the approximation discussed in
-Section~\ref{sec:validity} and would permit call-graph analysis, so that
-indirection through wrappers could be resolved and the true blast radius
-reported. Calibrating the score weights of Eq.~\ref{eq:score} against expert
-risk rankings would move the model from discriminating to validated. Finally,
-measuring the gas cost of on-chain lattice verification under current and
-proposed precompiles would establish when the architectural workaround of
-Section~\ref{sec:background} can be retired in favour of direct verification.
+Three smaller things follow. A proper parser for each language would remove the
+text-matching approximation of Section~\ref{sec:validity} and let us follow
+calls between functions, so wrappers no longer hide the true size of the
+problem. Checking the weights in Eq.~\ref{eq:score} against how experts rank
+files would turn the score from something that separates files into something
+validated. And measuring the real gas cost of on-chain lattice verification
+would tell us when the off-chain workaround can be dropped.
+
 % ============================================================================
 \section{Conclusion}
 \label{sec:conclusion}
 
-Organisations holding blockchain deployments face a migration whose first step is
-an inventory, and the tooling they have does not produce one: smart-contract
-analysers report logical defects, and cryptographic-misuse detectors report
-incorrect use of sound primitives, whereas the problem here is correct use of
-primitives that will become unsound. We presented a toolkit that produces that
-inventory and carries it through to migration planning, standards-conformant
-export, regulator-facing documentation and verifiable records.
+Companies running blockchain systems must migrate their cryptography, and the
+first thing they need is a list of where the weak algorithms are used. Their
+existing tools do not produce it: smart contract checkers look for logic bugs,
+and cryptography checkers look for algorithms used wrongly, whereas the problem
+here is algorithms used perfectly correctly that are about to stop being safe.
+We built a tool that produces that list and carries it through to a migration
+plan, a standard-format inventory, a regulator's report, and a verifiable
+record.
 
-Our substantive finding concerns precision. A lexical detector for this task is
-easy to make complete and hard to make precise, and its errors are dominated by
-two systematic classes rather than by scattered noise: matches inside comments
-and string literals, and multiple patterns firing on one call site.
-Offset-preserving masking and per-line family deduplication remove both, raising
-precision from 0.633 to 1.000 at unchanged recall on a benchmark built to be
-adversarial for this class of detector, while word anchoring alone --- the
-intuitive first remedy --- removes no false positive at all. We also showed that
-the severity-sum scoring common in tools of this kind saturates, assigning an
-identical maximum to artefacts differing severalfold in extent, and gave a
-three-term alternative that discriminates between them.
+Our real finding is about accuracy. A tool that searches code for cryptography
+is easy to make find everything and hard to stop from being wrong, and its
+mistakes are not random: two causes account for nearly all of them. Names
+matched inside comments and text strings, and one line counted several times
+because several patterns matched it. Blanking comments without losing line
+numbers, and grouping matches per line, remove both, taking precision from
+0.633 to 1.000 without losing a single real case. Adding word boundaries alone,
+the obvious first thing to try, removes no false positives at all. We also
+showed that the severity-adding score such tools normally use saturates, giving
+the same maximum to files differing several times over in how affected they are,
+and gave a three-part replacement that tells them apart.
 
-We are deliberate about what we have not shown. Because the benchmark was
-authored alongside the detector, the absolute figures are optimistic and the
-defensible result is the ablation delta rather than the endpoint. Establishing
-field accuracy requires an independently labelled corpus, which is where we
-direct our next effort. The implementation, the benchmark, the labelling policy
-and the evaluation harness are released so that both the result and its
-limitations can be checked.
+We are deliberate about what we have not shown. Because we wrote the test set
+ourselves while building the tool, the final numbers are optimistic, and the
+result we stand behind is the change from 0.633 to 1.000 rather than the
+endpoint. Nineteen cases cannot support an accuracy claim in any case: the
+confidence interval is too wide. Establishing real accuracy needs a test set
+labelled by people who did not build the tool, which is where we go next. The
+tool, the test set, the marking rules and the measurement scripts are all
+released, so both the result and its limits can be checked.
 
 % ----------------------------------------------------------------------------
 % Fill in or delete this whole section before submitting.
