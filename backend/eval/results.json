@@ -1,0 +1,169 @@
+{
+  "generated_at": "2026-10-12T15:55:34",
+  "benchmark_files": 7,
+  "labelled_findings": 19,
+  "configs": {
+    "v1-baseline": {
+      "per_algorithm": {
+        "AES_SHORT": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "DH": {
+          "tp": 2,
+          "fp": 4,
+          "fn": 0,
+          "precision": 0.333,
+          "recall": 1.0,
+          "f1": 0.5
+        },
+        "ECDSA": {
+          "tp": 4,
+          "fp": 3,
+          "fn": 0,
+          "precision": 0.571,
+          "recall": 1.0,
+          "f1": 0.727
+        },
+        "RSA": {
+          "tp": 4,
+          "fp": 2,
+          "fn": 0,
+          "precision": 0.667,
+          "recall": 1.0,
+          "f1": 0.8
+        },
+        "SHA256": {
+          "tp": 8,
+          "fp": 2,
+          "fn": 0,
+          "precision": 0.8,
+          "recall": 1.0,
+          "f1": 0.889
+        }
+      },
+      "overall": {
+        "tp": 19,
+        "fp": 11,
+        "fn": 0,
+        "precision": 0.633,
+        "recall": 1.0,
+        "f1": 0.776
+      }
+    },
+    "v2-boundaries": {
+      "per_algorithm": {
+        "AES_SHORT": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "DH": {
+          "tp": 2,
+          "fp": 4,
+          "fn": 0,
+          "precision": 0.333,
+          "recall": 1.0,
+          "f1": 0.5
+        },
+        "ECDSA": {
+          "tp": 4,
+          "fp": 3,
+          "fn": 0,
+          "precision": 0.571,
+          "recall": 1.0,
+          "f1": 0.727
+        },
+        "RSA": {
+          "tp": 4,
+          "fp": 2,
+          "fn": 0,
+          "precision": 0.667,
+          "recall": 1.0,
+          "f1": 0.8
+        },
+        "SHA256": {
+          "tp": 8,
+          "fp": 2,
+          "fn": 0,
+          "precision": 0.8,
+          "recall": 1.0,
+          "f1": 0.889
+        }
+      },
+      "overall": {
+        "tp": 19,
+        "fp": 11,
+        "fn": 0,
+        "precision": 0.633,
+        "recall": 1.0,
+        "f1": 0.776
+      }
+    },
+    "v3-full": {
+      "per_algorithm": {
+        "AES_SHORT": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "DH": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "ECDSA": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "RSA": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        "SHA256": {
+          "tp": 8,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        }
+      },
+      "overall": {
+        "tp": 19,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    }
+  },
+  "raw_match_totals": {
+    "v1-baseline": 39,
+    "v2-boundaries": 38,
+    "v3-full": 26
+  },
+  "shipped_scanner_matches_v3": true
+}

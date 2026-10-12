@@ -22,6 +22,7 @@ async function loadStatistics() {
         // Animate numbers
         animateValue('totalScans', 0, data.total_scans || 0, 1000);
         animateValue('totalVulnerabilities', 0, data.total_vulnerabilities_detected || 0, 1000);
+        animateValue('badgesIssued', 0, data.badges_issued || 0, 1000);
     } catch (error) {
         console.error('Failed to load statistics:', error);
     }
@@ -429,6 +430,94 @@ function downloadFile(content, filename) {
     a.click();
     a.remove();
     window.URL.revokeObjectURL(url);
+}
+
+// Export the scan as a CycloneDX Cryptographic Bill of Materials
+async function downloadCBOM() {
+    if (!currentScanId) {
+        alert('No scan results available');
+        return;
+    }
+
+    const btn = document.getElementById('cbomBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exporting...';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/cbom/${currentScanId}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const cbom = await response.json();
+        const blob = new Blob([JSON.stringify(cbom, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cbom_${currentScanId}.cdx.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        btn.innerHTML = '<i class="fas fa-check mr-2"></i>Downloaded!';
+        setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 3000);
+    } catch (error) {
+        console.error('CBOM export error:', error);
+        alert('Failed to export CBOM');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// Request a quantum-safe badge. The backend refuses to certify a file that
+// still has vulnerable findings, so surface that reason rather than a generic error.
+async function requestBadge() {
+    if (!currentScanId) {
+        alert('No scan results available');
+        return;
+    }
+
+    const btn = document.getElementById('badgeBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Issuing...';
+
+    const container = document.getElementById('badgeResult');
+
+    try {
+        const formData = new FormData();
+        formData.append('scan_id', currentScanId);
+
+        const response = await fetch(`${API_BASE_URL}/api/badge/generate`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            container.innerHTML = `
+                <p><b>Badge Issued &#10004;</b></p>
+                <p>Certificate ID: <code>${data.badge_id}</code></p>
+                <p>Verify: <a href="${API_BASE_URL}/api/badge/verify/${data.badge_id}" target="_blank" style="color:blue;">${data.badge_id}</a></p>
+                <img src="${API_BASE_URL}/api/badge/image/${data.badge_id}" alt="Quantum-safe certificate" style="max-width:420px;margin-top:8px;border:1px solid #ccc;">
+            `;
+            container.classList.remove('hidden');
+            btn.innerHTML = '<i class="fas fa-check mr-2"></i>Issued!';
+            setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 4000);
+            loadStatistics();
+        } else {
+            container.innerHTML = `<p><b>Not certified</b></p><p>${data.detail || 'Badge issuance failed'}</p>`;
+            container.classList.remove('hidden');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    } catch (error) {
+        console.error('Badge error:', error);
+        alert('Failed to issue badge');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 }
 
 // Scroll functions

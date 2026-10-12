@@ -3,19 +3,27 @@ import json
 import os
 from typing import Tuple
 
+# Sepolia defaults. Override via environment to target another network.
+DEFAULT_RPC_URL = "https://sepolia.gateway.tenderly.co"
+DEFAULT_CONTRACT_ADDRESS = "0x9F7946197AD3693e79948a229AAf177fAC3644Bf"
+DEFAULT_CHAIN_ID = 11155111
+
+
 class BlockchainStorage:
     def __init__(self):
-        # ✅ Sepolia RPC
-        self.rpc_url = "https://sepolia.gateway.tenderly.co"
+        self.rpc_url = os.getenv("WEB3_RPC_URL", DEFAULT_RPC_URL)
         self.w3 = Web3(Web3.HTTPProvider(self.rpc_url))
 
-        # ✅ YOUR PRIVATE KEY
         self.private_key = os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        if not self.private_key:
+            raise RuntimeError("BLOCKCHAIN_PRIVATE_KEY is not set")
 
         self.account = self.w3.eth.account.from_key(self.private_key)
+        self.chain_id = int(os.getenv("CHAIN_ID", DEFAULT_CHAIN_ID))
 
-        # ✅ CONTRACT
-        self.contract_address = Web3.to_checksum_address("0x9F7946197AD3693e79948a229AAf177fAC3644Bf")
+        self.contract_address = Web3.to_checksum_address(
+            os.getenv("CONTRACT_ADDRESS", DEFAULT_CONTRACT_ADDRESS)
+        )
 
         self.contract_abi = [
             {
@@ -73,7 +81,7 @@ class BlockchainStorage:
                 'gas': 300000,
                 'maxFeePerGas': self.w3.to_wei('20', 'gwei'),
                 'maxPriorityFeePerGas': self.w3.to_wei('2', 'gwei'),
-                'chainId': 11155111
+                'chainId': self.chain_id
             })
 
             signed_tx = self.w3.eth.account.sign_transaction(tx, self.private_key)

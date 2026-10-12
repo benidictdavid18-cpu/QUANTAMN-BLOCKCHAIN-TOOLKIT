@@ -11,3 +11,6 @@ backend/uploads/
 
 # Editor
 .vscode/
+
+# Third-party CLI binary, not part of this project
+acli.exe

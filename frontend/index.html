@@ -202,9 +202,15 @@
                     <button id="reportBtn" onclick="generateReport()" class="bg-purple-600 text-white py-4 rounded-lg font-semibold hover:bg-purple-700 transition">
                         <i class="fas fa-file-pdf mr-2"></i>Generate Report
                     </button>
-                    
+                    <button id="cbomBtn" onclick="downloadCBOM()" class="bg-teal-600 text-white py-4 rounded-lg font-semibold hover:bg-teal-700 transition">
+                        <i class="fas fa-list-ul mr-2"></i>Export CBOM (CycloneDX)
+                    </button>
+                    <button id="badgeBtn" onclick="requestBadge()" class="bg-amber-600 text-white py-4 rounded-lg font-semibold hover:bg-amber-700 transition">
+                        <i class="fas fa-certificate mr-2"></i>Issue Quantum-Safe Badge
+                    </button>
                 </div>
                 <div id="blockchainResult" class="hidden mt-4 p-4 bg-blue-50 border rounded"></div>
+                <div id="badgeResult" class="hidden mt-4 p-4 bg-amber-50 border rounded"></div>
             </div>
         </div>
     </section>

@@ -82,24 +82,28 @@ gcloud app deploy
 
 ### Blockchain Deployment
 
-To deploy the migration registry smart contract:
+A registry contract is already deployed on Sepolia at
+`0x9F7946197AD3693e79948a229AAf177fAC3644Bf`, which is the default. It exposes a
+single function:
 
-```bash
-cd backend
-python deploy_contract.py
+```solidity
+function storeProof(string scanId, string company, uint256 riskScore, bytes32 dataHash)
 ```
 
-Update the `CONTRACT_ADDRESS` in `.env` with the deployed address.
+To use your own deployment, deploy a contract with that signature (Remix or
+Foundry) and set `CONTRACT_ADDRESS` in `backend/.env`.
 
 ## Environment Variables
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| WEB3_RPC_URL | Blockchain RPC endpoint | No |
-| PRIVATE_KEY | Wallet private key for blockchain transactions | No |
-| CONTRACT_ADDRESS | Deployed contract address | No |
-| API_HOST | Backend host | No (default: 0.0.0.0) |
-| API_PORT | Backend port | No (default: 8000) |
+| BLOCKCHAIN_PRIVATE_KEY | Wallet private key for anchoring transactions | No — `/api/blockchain/*` returns 503 without it |
+| WEB3_RPC_URL | Blockchain RPC endpoint | No (default: Sepolia) |
+| CONTRACT_ADDRESS | Registry contract address | No (default: see above) |
+| CHAIN_ID | EVM chain id | No (default: 11155111) |
+| TOOLKIT_API_KEY | Required in `X-API-Key` for gas-spending routes | **Yes for public deployments** |
+| ALLOWED_ORIGINS | Comma-separated CORS origins | No (default: `*`) |
+| PORT | Backend port | No (default: 8000) |
 
 ## Testing the Application
 

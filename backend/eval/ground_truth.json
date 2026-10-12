@@ -1,0 +1,42 @@
+{
+  "_README": "Ground truth for the crypto-scanner benchmark. A labelled finding is an ACTIVE call site of a quantum-vulnerable primitive. Algorithm names appearing only in comments, docstrings or string literals are deliberately NOT labelled: they are the hard-negative component of the benchmark. Labels are (line, algorithm) pairs; a prediction counts as a true positive only on an exact match of both.",
+  "_labelling_policy": {
+    "import_statements": "labelled - an import of a vulnerable primitive is part of the migration surface",
+    "call_sites": "labelled",
+    "function_definitions_naming_a_primitive": "labelled when the body implements it (e.g. diffie_hellman_exchange)",
+    "comments_docstrings_strings": "not labelled",
+    "identifiers_that_merely_contain_a_primitive_substring": "not labelled (e.g. bandwidth, sha256_cache_enabled, rsa_config_path)"
+  },
+  "files": {
+    "pos_python_mixed.py": [
+      {"line": 6, "algorithm": "ECDSA"},
+      {"line": 7, "algorithm": "RSA"},
+      {"line": 18, "algorithm": "ECDSA"},
+      {"line": 22, "algorithm": "RSA"},
+      {"line": 31, "algorithm": "SHA256"},
+      {"line": 40, "algorithm": "SHA256"},
+      {"line": 63, "algorithm": "SHA256"},
+      {"line": 67, "algorithm": "SHA256"},
+      {"line": 79, "algorithm": "DH"}
+    ],
+    "pos_solidity_ecdsa.sol": [
+      {"line": 32, "algorithm": "ECDSA"},
+      {"line": 61, "algorithm": "SHA256"},
+      {"line": 69, "algorithm": "SHA256"}
+    ],
+    "pos_rsa_dh.py": [
+      {"line": 4, "algorithm": "RSA"},
+      {"line": 12, "algorithm": "RSA"},
+      {"line": 16, "algorithm": "AES_SHORT"},
+      {"line": 21, "algorithm": "SHA256"},
+      {"line": 23, "algorithm": "DH"}
+    ],
+    "pos_hybrid.sol": [
+      {"line": 21, "algorithm": "ECDSA"},
+      {"line": 25, "algorithm": "SHA256"}
+    ],
+    "neg_pq_safe.py": [],
+    "neg_comments_only.py": [],
+    "neg_false_friends.py": []
+  }
+}
