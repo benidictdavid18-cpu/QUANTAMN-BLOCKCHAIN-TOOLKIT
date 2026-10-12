@@ -102,8 +102,8 @@ to safer algorithms it needs a list of exactly where in its code the weak ones
 are used. Existing smart contract tools do not produce that list: they look for
 logic bugs, not for which cryptography a program uses. We present a tool that
 finds these places in Solidity, Python, JavaScript and Go code, gives the
-NIST-approved replacement for each, writes a report for regulators, and stores a
-tamper-proof record of the check on a blockchain. Our main result concerns
+NIST-approved replacement for each, writes a report for regulators, and records
+a tamper-proof summary on a blockchain. Our main result concerns
 accuracy. A text-matching tool of this kind is easy to make find everything but
 hard to stop from being wrong, and two causes explain almost all its mistakes:
 it matches algorithm names written in comments, and it reports one line several
@@ -111,9 +111,9 @@ times when several patterns match it. We fix both, and replace a risk score that
 gave nearly every file the same value. On a test set of seven files with
 nineteen marked locations, three written to trick the tool, these fixes raise
 precision from 0.633 to 1.000 while still finding every real case. Because we
-wrote that test set ourselves, we explain carefully what it does and does not
-prove. The tool also runs entirely in a browser, giving identical results, so
-private code never leaves the machine.
+wrote that test set ourselves, we explain what it does and does not prove. The
+tool also runs in a browser, giving identical results, so private code never
+leaves the machine.
 
 \keywords{Post-quantum cryptography \and Blockchain security \and Static
 analysis \and ML-DSA \and ML-KEM \and Cryptographic bill of materials \and
