@@ -94,27 +94,26 @@ Source Code: A Precision-Oriented Toolkit with Blockchain-Anchored Audit}
 
 % ----------------------------------------------------------------------------
 \begin{abstract}
-Blockchains rely on RSA and ECDSA, and a large enough quantum computer will
-break both. Blockchains suffer more than most systems from this, because every
-public key they have ever recorded stays public forever, so an attacker who gets
-a quantum computer years from now can still attack today's data. Before a
-company can move to safer algorithms, it needs a list of exactly where in its
-code the weak ones are used. Existing smart contract tools do not produce that
-list, because they look for logic bugs rather than for which cryptography a
-program uses. We present a tool that finds these places in Solidity, Python,
-JavaScript and Go code, gives the NIST-approved replacement for each, writes a
-report for regulators, and stores a tamper-proof record of the check on a
-blockchain. Our main result is about accuracy. A text-matching tool of this kind
-is easy to make find everything but hard to stop from being wrong, and we show
-two causes account for almost all of its mistakes: it matches algorithm names
-written in comments, and it reports the same line several times when more than
-one pattern matches it. We fix both, and we replace a risk score that gave
-nearly every file the same value. On a test set of seven files with nineteen
-marked locations, three of them written to trick the tool, these fixes raise
+Blockchains rely on RSA and ECDSA, and a large enough quantum computer breaks
+both. They suffer more than most systems from this, because every public key
+they have recorded stays public forever, so an attacker who gets a quantum
+computer years from now can still attack today's data. Before a company can move
+to safer algorithms it needs a list of exactly where in its code the weak ones
+are used. Existing smart contract tools do not produce that list: they look for
+logic bugs, not for which cryptography a program uses. We present a tool that
+finds these places in Solidity, Python, JavaScript and Go code, gives the
+NIST-approved replacement for each, writes a report for regulators, and stores a
+tamper-proof record of the check on a blockchain. Our main result concerns
+accuracy. A text-matching tool of this kind is easy to make find everything but
+hard to stop from being wrong, and two causes explain almost all its mistakes:
+it matches algorithm names written in comments, and it reports one line several
+times when several patterns match it. We fix both, and replace a risk score that
+gave nearly every file the same value. On a test set of seven files with
+nineteen marked locations, three written to trick the tool, these fixes raise
 precision from 0.633 to 1.000 while still finding every real case. Because we
-wrote the test set ourselves, we explain carefully what this does and does not
-prove. The tool also runs entirely in a web browser, giving identical results,
-so private code never leaves the machine.
+wrote that test set ourselves, we explain carefully what it does and does not
+prove. The tool also runs entirely in a browser, giving identical results, so
+private code never leaves the machine.
 
 \keywords{Post-quantum cryptography \and Blockchain security \and Static
 analysis \and ML-DSA \and ML-KEM \and Cryptographic bill of materials \and
