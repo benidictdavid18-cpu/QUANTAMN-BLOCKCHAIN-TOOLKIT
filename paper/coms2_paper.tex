@@ -94,33 +94,28 @@ Source Code: A Precision-Oriented Toolkit with Blockchain-Anchored Audit}
 
 % ----------------------------------------------------------------------------
 \begin{abstract}
-Blockchain systems derive their integrity guarantees from elliptic-curve and
-factorisation-based cryptography, both of which Shor's algorithm reduces to
-polynomial time. Because distributed ledgers retain public keys and signatures
-indefinitely, their exposure is cumulative rather than transient: material
-committed today remains available to a future quantum adversary. Organisations
-preparing for this transition first need an inventory of where vulnerable
-primitives are actually invoked, yet established smart-contract analysers target
-logical defects and do not report cryptographic composition. We present a
-toolkit that locates quantum-vulnerable call sites in Solidity, Python,
-JavaScript and Go sources, maps each to its NIST-standardised replacement,
-exports a CycloneDX cryptographic bill of materials, generates regulator-facing
-documentation, and anchors a tamper-evident digest of each assessment on a
-public ledger. Our central technical claim concerns precision rather than
-coverage. We show that a naive lexical detector of this kind is dominated by two
-systematic error sources: matches inside comments and string literals, and
-multiple patterns firing on a single call site. We introduce offset-preserving
-non-code masking and per-line family deduplication to eliminate both, and a
-three-term exposure score that replaces a severity sum which we demonstrate
-saturates for any file containing four or more high-severity findings. On a
-hand-labelled benchmark of seven artefacts containing nineteen annotated call
-sites, of which three artefacts are deliberate hard negatives, these mechanisms
-raise precision from 0.633 to 1.000 at unchanged recall. We report this as an
-ablation establishing that each mechanism removes the error class it targets,
-and we state explicitly why the absolute figures do not constitute an
-independent accuracy estimate. We additionally describe a dual-runtime
-implementation, verified to produce identical findings in both runtimes, that
-permits analysis of proprietary source without transmitting it.
+Blockchains rely on RSA and ECDSA to keep transactions secure. A large enough
+quantum computer will break both. Blockchains are hit harder than most systems
+by this, because every public key they have ever recorded stays public forever,
+so an attacker who gets a quantum computer years from now can still go back and
+attack today's data. Before a company can move to safer algorithms, it needs a
+list of exactly where in its code the weak ones are used. Current smart contract
+tools do not give this list: they look for logic bugs, not for which
+cryptography a program uses. We built a tool that finds these places in
+Solidity, Python, JavaScript and Go code, says what each one should be replaced
+with under the new NIST standards, writes a report for regulators, and saves a
+tamper-proof record of the check on a blockchain. Our main result is about
+accuracy, not coverage. A simple text-matching tool is easy to make find
+everything, but hard to stop from being wrong, and we show its mistakes come
+from two specific causes: it matches algorithm names written in comments, and
+it counts the same line of code more than once when several patterns match it.
+We fix both, and we replace a risk score that gave every file the same value
+with one that separates them. On a test set of seven files with nineteen marked
+locations, three of which are files designed to trick the tool, these fixes
+raise precision from 0.633 to 1.000 while still finding every real case. We are
+clear about what this does and does not show, since we wrote the test set
+ourselves. We also show the tool can run fully inside a web browser, giving the
+same results, so a company never has to upload its code.
 
 \keywords{Post-quantum cryptography \and Blockchain security \and Static
 analysis \and ML-DSA \and ML-KEM \and Cryptographic bill of materials \and
@@ -131,113 +126,111 @@ Regulatory compliance.}
 \section{Introduction}
 \label{sec:intro}
 
-Public blockchains rest on a narrow cryptographic base. Ethereum and Bitcoin
-authenticate transactions with ECDSA over the secp256k1 curve; smart contracts
-commonly verify delegated authorisation through the \texttt{ecrecover}
-precompile; off-chain components that surround a deployment typically use RSA
-for key transport and SHA-256 for commitment. Each of these rests on a problem
-that a sufficiently capable quantum computer solves efficiently. Shor's
-algorithm~\cite{shor1997} yields polynomial-time integer factorisation and
-discrete logarithms, which breaks RSA and ECDSA outright. Grover's
-algorithm~\cite{grover1996} provides a quadratic speedup for unstructured
-search, which halves the effective security margin of symmetric primitives and
-hash functions, leaving AES-128 at roughly 64 bits and SHA-256 at roughly 128
-bits of preimage resistance.
+Blockchains depend on only a few cryptographic algorithms. Ethereum and Bitcoin
+sign transactions with ECDSA on the secp256k1 curve. Smart contracts check
+signatures using the \texttt{ecrecover} function. The servers and scripts around
+a blockchain usually use RSA to exchange keys and SHA-256 to make hashes. All of
+these depend on maths problems that a quantum computer can solve quickly.
+Shor's algorithm~\cite{shor1997} can factor large numbers and solve discrete
+logarithms fast, which breaks RSA and ECDSA completely. Grover's
+algorithm~\cite{grover1996} is a weaker attack: it makes searching twice as
+fast, which cuts the strength of hashes and block ciphers in half. AES-128 drops
+to about 64 bits of security and SHA-256 to about 128 bits.
 
-Distributed ledgers occupy an unusually exposed position in this transition. In
-most systems a cryptographic weakness is bounded in time: once a vulnerable
-channel is retired, traffic that passed through it is no longer available to an
-attacker. A public ledger inverts this property. Every public key and every
-signature it has ever recorded remains permanently retrievable, so an adversary
-who acquires quantum capability at some future point can operate
-retrospectively against the entire history. Mosca's framing of the migration
-deadline~\cite{mosca2018} makes the consequence concrete: when the required
-secrecy lifetime plus the migration time exceeds the time until a
-cryptographically relevant quantum computer exists, the organisation is already
-late. For an immutable ledger the secrecy lifetime is unbounded, which collapses
-the inequality and makes the deadline immediate in principle.
+Blockchains have a problem here that most systems do not. Normally, when you
+stop using a weak algorithm, the old data is gone and an attacker cannot reach
+it. A public blockchain works the other way round. Every public key and every
+signature it has ever stored is still there and still public. So an attacker who
+gets a quantum computer in ten years can still attack everything written today.
+Mosca~\cite{mosca2018} explains the timing simply: if the time your data must
+stay secret, plus the time your migration takes, is longer than the time until
+quantum computers arrive, you have already left it too late. For a blockchain
+the data must stay secret forever, so by this rule the work should already have
+started.
 
-Standardisation has removed the main technical obstacle to acting. In August
-2024 NIST finalised FIPS 203 (ML-KEM, module-lattice key
-encapsulation)~\cite{fips203}, FIPS 204 (ML-DSA, module-lattice
-signatures)~\cite{fips204} and FIPS 205 (SLH-DSA, stateless hash-based
-signatures)~\cite{fips205}. NIST's subsequent transition
-guidance~\cite{nistir8547} sets out a schedule under which the classical
-primitives in question are deprecated and then disallowed. In India, the Reserve
-Bank of India's cybersecurity framework and CERT-In's directions place
-corresponding obligations on regulated entities to maintain awareness of
-cryptographic exposure.
+The algorithms to move to are now settled, so there is no technical excuse to
+wait. In August 2024 NIST published three final standards: FIPS 203 for ML-KEM
+(key exchange)~\cite{fips203}, FIPS 204 for ML-DSA
+(signatures)~\cite{fips204} and FIPS 205 for SLH-DSA (hash-based
+signatures)~\cite{fips205}. NIST has also published a timetable~\cite{nistir8547}
+for when the old algorithms stop being allowed. In India, the Reserve Bank of
+India's cybersecurity framework and CERT-In's directions already require
+regulated companies to know what cryptography they are using.
 
-What remains unaddressed is the first operational step. Before an organisation
-can migrate, it must know where the vulnerable primitives are invoked, with
-enough specificity to assign the work. This is an inventory problem, and it is
-distinct from the vulnerability classes that existing smart-contract tooling
-addresses. Slither~\cite{slither}, Mythril and Manticore detect reentrancy,
-arithmetic overflow and access-control defects. They do not report which
-cryptographic algorithms a codebase composes, because that has not historically
-been a defect. CryptoGuard~\cite{cryptoguard} does analyse cryptographic API
-usage, but targets misuse rules in Java rather than quantum exposure in ledger
+The step nobody has solved is the first one. Before a company can change
+anything, it has to know where the weak algorithms are used in its code, and
+know it precisely enough to hand the work to a developer. This is a listing
+problem, and it is not what existing smart contract tools do.
+Slither~\cite{slither}, Mythril and Manticore look for bugs such as reentrancy,
+number overflow and missing access checks. They do not report which
+cryptographic algorithms the code uses, because using ECDSA has never been a bug
+until now. CryptoGuard~\cite{cryptoguard} does look at cryptography, but it
+checks for wrong usage in Java programs, not for quantum risk in blockchain
 code.
 
 \subsection{Problem Statement}
 
-We address the following problem. Given a source artefact drawn from a
-blockchain deployment, produce a list of the locations at which
-quantum-vulnerable cryptographic primitives are invoked, such that the list is
-specific enough to drive a migration and precise enough that an engineer
-reviewing it does not lose confidence in the tool.
+The problem we solve is this. Given a source file from a blockchain project,
+produce a list of the exact places where quantum-vulnerable cryptography is
+used. The list has to be detailed enough to plan the migration, and accurate
+enough that a developer reading it still trusts the tool.
 
-The precision requirement is the substantive one, and it is easy to
-underestimate. A detector of this kind is normally built from a pattern set
-matched against source text. Such a detector is straightforward to make
-complete, in the sense of finding every genuine call site, and surprisingly
-difficult to make precise. Two error sources dominate. Cryptographic algorithm
-names occur heavily in comments, documentation strings and literals,
-particularly in code that is being migrated, where the prose discusses exactly
-the primitives that have been removed. And a single call site is frequently
-matched by several patterns at once, so the naive finding count exceeds the
-number of locations an engineer must actually visit. Both errors inflate every
-downstream number, including the risk score and the remediation estimate.
+Being accurate is the hard part, and it is easy to underestimate how hard. A
+tool like this is normally built by searching the source code for patterns. It
+is easy to make such a tool find every real case. It is much harder to stop it
+reporting things that are not real. Two mistakes cause most of the trouble.
+
+First, algorithm names appear a lot in comments and in text strings. This is
+worst in exactly the code we care about, because a file that is being migrated
+usually has comments explaining which old algorithms were removed. A tool that
+searches the raw text reports those comments as problems.
+
+Second, one line of code often matches several patterns at once, so the tool
+reports the same place two or three times. The count then looks bigger than the
+number of places a developer actually has to visit.
+
+Both mistakes make every later number wrong too, including the risk score and
+the estimate of how much work the migration needs.
 
 \subsection{Contributions}
 
 \begin{enumerate}
-  \item A precision-oriented detection method for quantum-vulnerable
-  cryptography in source code, combining offset-preserving non-code masking with
-  per-line family deduplication. Masking blanks comments and string literals
-  while preserving byte offsets and newlines, so reported line numbers remain
-  exact; deduplication collapses redundant matches so that one call site yields
-  one finding (Section~\ref{sec:method}).
+  \item \textbf{Two fixes that make the tool accurate.} We blank out comments
+  and text strings before searching, but we replace each character with a space
+  instead of deleting it, so the line numbers we report stay correct. We also
+  group matches that land on the same line for the same algorithm, so one place
+  in the code gives one result (Section~\ref{sec:method}).
 
-  \item An exposure score that does not saturate. We show that the severity-sum
-  scoring used in the preliminary version of this system assigns the maximum
-  value to any artefact containing four or more high-severity findings, and
-  report that it produced a mean score of 99.5 across the scan records
-  accumulated during development. We replace it with a three-term model over
-  worst severity, family breadth and finding density
-  (Section~\ref{sec:scoring}).
+  \item \textbf{A risk score that actually varies.} The earlier version of our
+  tool added up severity points and capped the total at 100. Four serious
+  findings already reach the cap, so almost every file scored 100. Across the
+  scans we collected while building the tool, the average was 99.5. Our new
+  score combines three things instead: how serious the worst finding is, how
+  many different algorithms are involved, and how many findings there are per
+  hundred lines (Section~\ref{sec:scoring}).
 
-  \item A hand-labelled benchmark of seven artefacts and nineteen annotated call
-  sites, in which three artefacts are zero-label hard negatives: a
-  post-quantum implementation, a module whose vulnerable primitives appear only
-  in prose, and a module of identifiers that merely contain primitive names as
-  substrings. The benchmark and its labelling policy are released with the
-  implementation (Section~\ref{sec:benchmark}).
+  \item \textbf{A test set with deliberately tricky files.} Seven files with
+  nineteen marked locations. Three of the files contain no real problems at all:
+  one already uses post-quantum algorithms, one only mentions the old algorithms
+  in comments, and one has names like \texttt{bandwidth} and
+  \texttt{sha256\_cache} that look cryptographic but are not. We release the
+  files and the marking rules (Section~\ref{sec:benchmark}).
 
-  \item An ablation over three detector configurations quantifying the
-  contribution of each mechanism, together with an explicit account of why the
-  absolute scores overstate field accuracy (Section~\ref{sec:results}).
+  \item \textbf{A test showing which fix does what.} We run the tool in three
+  versions to show how much each fix helps, and we explain clearly why our
+  scores look better than the tool would do on real code
+  (Section~\ref{sec:results}).
 
-  \item A dual-runtime implementation --- a Python reference and a browser port
-  --- verified to produce identical findings, counts, risk scores and
-  post-quantum detections across the full benchmark. The browser runtime
-  permits assessment of proprietary source that an organisation will not
-  transmit (Section~\ref{sec:dualruntime}).
+  \item \textbf{The same tool in two languages, checked to agree.} We wrote the
+  detection logic in Python and again in JavaScript, and we check that both give
+  exactly the same results on every test file. The JavaScript version runs in a
+  web browser, so a company can check its private code without uploading it
+  anywhere (Section~\ref{sec:dualruntime}).
 
-  \item An integration path from detection to governance: CycloneDX
-  cryptographic bill of materials export, regulator-facing report generation,
-  and non-custodial ledger anchoring of assessment digests
-  (Sections~\ref{sec:cbom} and~\ref{sec:anchor}).
+  \item \textbf{Output that companies can actually use.} A machine-readable
+  list of cryptography in the standard CycloneDX format, reports written for
+  regulators, and a record saved on a blockchain that proves when the check was
+  done (Sections~\ref{sec:cbom} and~\ref{sec:anchor}).
 \end{enumerate}
 
 % ============================================================================
