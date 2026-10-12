@@ -35,20 +35,44 @@ Source Code: A Precision-Oriented Toolkit with Blockchain-Anchored Audit}
 
 \titlerunning{Detecting Quantum-Vulnerable Cryptography in Blockchain Code}
 
-\author{%
-  <First Author>\inst{1}\orcidID{0000-0000-0000-0000} \and
-  <Second Author>\inst{1}\orcidID{0000-0000-0000-0000} \and
-  <Third Author>\inst{2}\orcidID{0000-0000-0000-0000}%
-}
+% ---------------------------------------------------------------------------
+% AUTHOR BLOCK
+%
+% Name is filled in. Three items still REQUIRE your input and are marked
+% <LIKE-THIS> below. Do not submit with any of them unresolved.
+%
+%   <YOUR-ORCID>   Register free at https://orcid.org (takes two minutes).
+%                  Format: 0000-0000-0000-0000. The call for papers makes this
+%                  mandatory. Never put a made-up number here: ORCIDs resolve
+%                  publicly and Springer production checks them.
+%
+%   <DEPARTMENT> / <INSTITUTION> / <CITY> / <STATE>
+%                  Where the work was done. A factual claim; get it right.
+%
+%   <EMAIL>        Prefer your institutional address over a personal one.
+%                  Reviewers and Springer correspondence both use it.
+%                  (Your git config says benedictdavid18@gmail.com; your
+%                  account says benidictdavid18@gmail.com -- these differ.
+%                  Check which is correct before using either.)
+%
+% ADDING CO-AUTHORS: supervisors and contributors go here too. For a second
+% author at the SAME institution:
+%
+%   \author{Benedict David\inst{1}\orcidID{...} \and
+%           Co Author\inst{1}\orcidID{...}}
+%   \authorrunning{B. David and C. Author}
+%
+% For a co-author at a DIFFERENT institution, give them \inst{2} and add a
+% second block to \institute separated by \and.
+% ---------------------------------------------------------------------------
 
-\authorrunning{<First Author> et al.}
+\author{Benedict David\inst{1}\orcidID{<YOUR-ORCID>}}
+
+\authorrunning{B. David}
 
 \institute{%
-  <Department>, <Institution>, <City>, <State>, India\\
-  \email{<email1>@<domain>}
-  \and
-  <Department>, <Institution>, <City>, <State>, India\\
-  \email{<email3>@<domain>}%
+  <DEPARTMENT>, <INSTITUTION>, <CITY>, <STATE>, India\\
+  \email{<EMAIL>}%
 }
 
 \maketitle
@@ -707,7 +731,7 @@ ECDSA (4 findings), RSA (4), SHA-256 (8), Diffie--Hellman (2) and short-key AES
 \paragraph{What these numbers do and do not establish.} The absolute scores must
 not be read as a field accuracy estimate, and we state the reason plainly. The
 benchmark is small, at seven artefacts and nineteen findings, and it was
-authored alongside the detector by the same authors. Under those conditions
+authored alongside the detector by its developers. Under those conditions
 perfect scores on the final configuration are close to a construction artefact:
 the negatives were written to exercise error classes we had already decided to
 address. What the table does establish is narrower and still useful --- that
@@ -847,8 +871,8 @@ crossing newlines, but a parser-based implementation per language would be
 strictly more accurate.
 
 \paragraph{Evaluation.} Three threats to validity apply, in decreasing order of
-seriousness. \emph{Construct validity}: the benchmark was authored by the same
-authors as the detector, so the negatives test error classes we had already
+seriousness. \emph{Construct validity}: the benchmark was authored by the
+detector's own developers, so the negatives test error classes we had already
 chosen to address, and the v3 scores are correspondingly optimistic. This is the
 dominant limitation of the present evaluation and we do not minimise it.
 \emph{External validity}: seven artefacts of a few dozen lines each cannot
@@ -955,12 +979,12 @@ and the evaluation harness are released so that both the result and its
 limitations can be checked.
 
 % ----------------------------------------------------------------------------
+% Fill in or delete this whole section before submitting.
 \subsubsection*{Acknowledgements.}
-<Add funding, institutional and individual acknowledgements here, or delete this
-section.>
+% <ACKNOWLEDGEMENTS: funding, supervisor, institution -- or delete the section>
 
 \subsubsection*{Disclosure of Interests.}
-The authors have no competing interests to declare.
+The author has no competing interests to declare.
 
 % ============================================================================
 \begin{thebibliography}{99}
