@@ -718,6 +718,16 @@ not pay for it. The appropriate reading is the \emph{delta}, from 0.633 to
 requires a corpus the detector's authors did not construct, which we identify as
 the primary item of future work in Section~\ref{sec:future}.
 
+Sample size compounds the point. Nineteen labelled positives support a Wilson
+95\% interval on precision of only $[0.832, 1.000]$ even when every one is
+correct, and the per-family figures are weaker still: the single short-key AES
+finding yields $[0.207, 1.000]$, which is to say nothing at all about that
+family. We therefore do not claim a precision level from this benchmark, only a
+difference between configurations measured on the same data. Reaching an
+interval tight enough to support a claim above 0.95 requires on the order of
+150 labelled positives, which sets the scale of the corpus described in
+Section~\ref{sec:future}.
+
 \subsection{Score Discrimination}
 
 \begin{table}[t]
@@ -874,13 +884,34 @@ document itself.
 \section{Future Work}
 \label{sec:future}
 
-The clear priority is an independent evaluation corpus. We intend to sample
-several hundred verified contracts from a public explorer and label them under
-the policy of Section~\ref{sec:benchmark} with annotators who did not develop
-the detector, reporting inter-annotator agreement. That would convert the
-present ablation into an accuracy estimate and would also serve as a measurement
-study of quantum exposure in deployed contracts, which to our knowledge has not
-been reported at scale.
+The clear priority is an independent evaluation corpus, and we have implemented
+and released the harness for it so that the protocol is fixed before any data is
+collected rather than chosen afterwards. It operates in three stages, with the
+separation between them doing the methodological work.
+
+Stage one draws contracts from creation transactions in randomly chosen blocks
+within a recent range, retains those with verified source, and generates
+\emph{candidate lines} for human adjudication. Candidate generation is
+deliberately cruder than the detector --- bare case-insensitive substrings, no
+word boundaries, no masking, no deduplication --- so that the candidate set is a
+strict superset of anything the detector can report. This is what makes detector
+false negatives measurable: a call site the detector misses is still presented to
+the annotator. Stage three verifies the superset property holds and raises a
+harness error if any detector finding falls outside the candidate set.
+
+Stage two presents each candidate with surrounding context and records what the
+line actually invokes. The annotation tool does not import the detector and
+never displays its prediction, because an annotator shown a prediction produces
+labels that inherit the detector's biases, and the resulting accuracy figure
+would be circular. Two annotators label independently, and disagreements are
+excluded from the primary score rather than resolved by majority vote, which
+would manufacture confidence the data does not support.
+
+Stage three reports Cohen's $\kappa$ between annotators alongside precision,
+recall and $F_1$ per family with Wilson intervals. We treat $\kappa$ as a gate
+rather than as a statistic to report in passing: a value below roughly 0.6 would
+indicate that our labelling policy is ambiguous, in which case the policy must be
+revised and the corpus relabelled before any accuracy figure is quoted.
 
 Three further directions follow. Replacing lexical masking with per-language
 parsing would eliminate the approximation discussed in
@@ -891,7 +922,6 @@ risk rankings would move the model from discriminating to validated. Finally,
 measuring the gas cost of on-chain lattice verification under current and
 proposed precompiles would establish when the architectural workaround of
 Section~\ref{sec:background} can be retired in favour of direct verification.
-
 % ============================================================================
 \section{Conclusion}
 \label{sec:conclusion}
