@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lattice — Post-Quantum Migration Console</title>
+<meta name="description" content="Scan blockchain and smart contract source for quantum-vulnerable cryptography and plan the migration to NIST post-quantum standards.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<canvas id="lattice" aria-hidden="true"></canvas>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text">Lattice<span class="brand-sub">PQ Migration Console</span></span>
+    </div>
+    <nav class="topnav">
+      <a href="#console">Console</a>
+      <a href="#findings">Findings</a>
+      <a href="#plan">Plan</a>
+      <a href="#method">Method</a>
+    </nav>
+    <span class="chip chip-local" title="All analysis runs in this browser">
+      <span class="dot"></span>Runs locally
+    </span>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <p class="eyebrow">NIST FIPS 203 · 204 · 205</p>
+    <h1>Find the cryptography<br>a quantum computer breaks.</h1>
+    <p class="lede">
+      Upload Solidity, Python, JavaScript or Go source. Lattice locates every
+      active call site using ECDSA, RSA, Diffie–Hellman, SHA-256 or short-key
+      AES, scores the exposure, and writes the migration to module-lattice
+      replacements. Nothing leaves this browser.
+    </p>
+
+    <div class="hero-stats">
+      <div class="hstat">
+        <span class="hstat-v" id="heroFamilies">5</span>
+        <span class="hstat-k">Algorithm families</span>
+      </div>
+      <div class="hstat">
+        <span class="hstat-v" id="heroLines">—</span>
+        <span class="hstat-k">Lines analysed</span>
+      </div>
+      <div class="hstat">
+        <span class="hstat-v" id="heroFindings">—</span>
+        <span class="hstat-k">Live findings</span>
+      </div>
+      <div class="hstat">
+        <span class="hstat-v">0</span>
+        <span class="hstat-k">Bytes uploaded</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="console" class="panel">
+    <div class="panel-head">
+      <h2>Scan source</h2>
+      <p>Organisation details appear on the compliance report and the certificate.</p>
+    </div>
+
+    <form id="scanForm" class="form-grid" novalidate>
+      <div class="field">
+        <label for="companyName">Organisation</label>
+        <input id="companyName" name="companyName" type="text" value="Rajasthan Pharma Works Pvt Ltd" required>
+      </div>
+      <div class="field">
+        <label for="sector">Sector</label>
+        <select id="sector" name="sector">
+          <option>Pharmaceuticals</option>
+          <option>Manufacturing</option>
+          <option>Healthcare</option>
+          <option>Banking &amp; Financial Services</option>
+          <option>Logistics</option>
+          <option>Government</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="contactEmail">Contact email</label>
+        <input id="contactEmail" name="contactEmail" type="email" value="security@example.in" required>
+      </div>
+      <div class="field">
+        <label for="reportType">Report template</label>
+        <select id="reportType">
+          <option value="RBI">RBI — Cybersecurity Framework</option>
+          <option value="CERT-In">CERT-In — Vulnerability Note</option>
+          <option value="Insurance">Insurer — Cyber Risk Annexure</option>
+          <option value="General">General technical</option>
+        </select>
+      </div>
+
+      <div class="dropzone" id="dropZone" tabindex="0" role="button"
+           aria-label="Choose a source file to scan, or drop one here">
+        <input type="file" id="codeFile" accept=".sol,.py,.js,.ts,.go,.java,.rs,.txt" hidden>
+        <span class="dz-ico" aria-hidden="true"></span>
+        <span class="dz-main">Drop a source file, or click to choose</span>
+        <span class="dz-sub" id="fileName">.sol · .py · .js · .go — parsed in-browser</span>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="scanBtn">Scan source</button>
+        <button type="button" class="btn btn-ghost" id="loadSolidity">Load example contract</button>
+        <button type="button" class="btn btn-ghost" id="loadPython">Load example Python</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="findings" class="results">
+
+    <div class="result-top">
+      <div class="panel gauge-panel">
+        <div class="panel-head">
+          <h2>Exposure</h2>
+          <p id="scanSubject">Example scan</p>
+        </div>
+        <div class="gauge-wrap">
+          <div class="gauge" id="gauge" style="--pct:0">
+            <div class="gauge-core">
+              <span class="gauge-v" id="riskValue">0</span>
+              <span class="gauge-k">risk score</span>
+            </div>
+          </div>
+        </div>
+        <dl class="gauge-break" id="gaugeBreak"></dl>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Breakdown</h2>
+          <p>Active call sites, grouped by algorithm family.</p>
+        </div>
+        <ul class="famlist" id="famList"></ul>
+        <div class="pqbox" id="pqBox" hidden>
+          <span class="pqbox-k">Post-quantum already present</span>
+          <span class="pqbox-v" id="pqFound"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head row">
+        <div>
+          <h2>Findings</h2>
+          <p>Every match is an active call site. Comment and string mentions are listed separately below.</p>
+        </div>
+        <span class="count-pill" id="findingCount">0</span>
+      </div>
+      <div class="table-scroll">
+        <table class="ftable">
+          <thead>
+            <tr><th>Line</th><th>Family</th><th>Severity</th><th>Matched</th><th>Source</th></tr>
+          </thead>
+          <tbody id="findingRows"></tbody>
+        </table>
+      </div>
+      <details class="info-details" id="infoDetails" hidden>
+        <summary><span id="infoCount">0</span> mention(s) in comments or strings — not counted</summary>
+        <ul class="infolist" id="infoList"></ul>
+      </details>
+    </div>
+
+    <div id="plan" class="panel">
+      <div class="panel-head row">
+        <div>
+          <h2>Migration plan</h2>
+          <p id="planMeta">—</p>
+        </div>
+      </div>
+      <div class="steps" id="planSteps"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Deliverables</h2>
+        <p>Generated in-browser. The on-chain proof uses your own wallet, so no key is held by this site.</p>
+      </div>
+      <div class="actions">
+        <button class="act act-code" id="btnMigrate">
+          <span class="act-k">Migrated source</span>
+          <span class="act-d">Apply rewrites, download file</span>
+        </button>
+        <button class="act act-cbom" id="btnCbom">
+          <span class="act-k">CBOM</span>
+          <span class="act-d">CycloneDX 1.6 inventory</span>
+        </button>
+        <button class="act act-pdf" id="btnReport">
+          <span class="act-k">Compliance report</span>
+          <span class="act-d">PDF for the chosen template</span>
+        </button>
+        <button class="act act-badge" id="btnBadge">
+          <span class="act-k">Quantum-safe badge</span>
+          <span class="act-d">Issued only at zero findings</span>
+        </button>
+        <button class="act act-chain" id="btnChain">
+          <span class="act-k">Anchor proof</span>
+          <span class="act-d">Sepolia, via your wallet</span>
+        </button>
+      </div>
+      <div class="outbox" id="outBox" hidden></div>
+    </div>
+  </section>
+
+  <section id="method" class="panel method">
+    <div class="panel-head">
+      <h2>How the score and the scan work</h2>
+      <p>The same logic the Python implementation and its evaluation harness use.</p>
+    </div>
+
+    <div class="method-grid">
+      <article>
+        <h3>Comment and string masking</h3>
+        <p>
+          Comments, docstrings and string literals are blanked before matching,
+          with newlines preserved so line numbers stay exact. An algorithm named
+          only in prose is documentation, not a call site, and is reported
+          separately instead of counted.
+        </p>
+      </article>
+      <article>
+        <h3>Per-line deduplication</h3>
+        <p>
+          A single call site often matches several patterns —
+          <code>hashlib.sha256(</code> matches both the qualified and the bare
+          form. Matches collapse per line and family, keeping the most specific,
+          so one call site is one finding.
+        </p>
+      </article>
+      <article>
+        <h3>Exposure score</h3>
+        <p>
+          Severity alone saturates: any file with four high findings pins at 100.
+          The score instead combines worst severity (≤60), distinct families
+          (≤20) and findings per hundred lines with diminishing returns (≤20).
+        </p>
+      </article>
+      <article>
+        <h3>Known limits</h3>
+        <p>
+          Detection is lexical. It finds cryptographic API usage, not misuse of a
+          correctly-named primitive, and does not follow indirection through
+          wrappers. Treat output as a migration worklist, not an audit.
+        </p>
+      </article>
+    </div>
+
+    <div class="mapping">
+      <h3>Replacement targets</h3>
+      <div class="table-scroll">
+        <table class="ftable">
+          <thead><tr><th>Classical</th><th>Post-quantum</th><th>Standard</th><th>Why it falls</th></tr></thead>
+          <tbody>
+            <tr><td>ECDSA</td><td>ML-DSA (Dilithium)</td><td>FIPS 204</td><td>Shor's algorithm recovers the private key</td></tr>
+            <tr><td>RSA</td><td>ML-KEM (Kyber)</td><td>FIPS 203</td><td>Shor's algorithm factors the modulus</td></tr>
+            <tr><td>Diffie–Hellman</td><td>ML-KEM (Kyber)</td><td>FIPS 203</td><td>Discrete log solved in polynomial time</td></tr>
+            <tr><td>SHA-256</td><td>SHA-384 / SHA-512</td><td>FIPS 180-4</td><td>Grover search halves preimage security</td></tr>
+            <tr><td>AES-128</td><td>AES-256</td><td>FIPS 197</td><td>Grover search halves the key space</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <div>
+      <strong>Lattice</strong> — post-quantum migration console.
+      Analysis is lexical and runs entirely client-side.
+    </div>
+    <div class="foot-links">
+      <a href="https://github.com/benidictdavid18-cpu/QUANTAMN-BLOCKCHAIN-TOOLKIT" target="_blank" rel="noopener">Source &amp; evaluation harness</a>
+      <span class="foot-sep">·</span>
+      <span>RBI · CERT-In · ISO 27001 · NIST PQC</span>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

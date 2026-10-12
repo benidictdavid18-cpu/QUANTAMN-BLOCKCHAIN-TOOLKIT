@@ -3,6 +3,18 @@
 A web application for Indian companies to migrate their blockchain and smart
 contract code from classical cryptography to post-quantum algorithms.
 
+### ▸ Live: https://benidictdavid18-cpu.github.io/QUANTAMN-BLOCKCHAIN-TOOLKIT/
+
+The live console (`docs/`) runs the whole analysis in the browser — no backend,
+no upload, nothing to cold-start. Source files never leave the machine. The
+Python implementation in `backend/` remains the reference version and is what
+the evaluation harness scores; `docs/app.js` is a verified port of it (findings,
+counts, comment-only mentions, post-quantum detection and risk scores are
+identical across all seven benchmark fixtures).
+
+On-chain anchoring in the live console signs from the visitor's own wallet, so
+no private key is held server-side.
+
 ## Features
 
 - 🔍 **Automated Cryptography Scanning**: Detect vulnerable classical algorithms (ECDSA, RSA, DH, SHA-256, short-key AES)
