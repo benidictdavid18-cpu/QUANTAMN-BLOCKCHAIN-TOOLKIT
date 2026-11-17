@@ -1,5 +1,5 @@
 /* ───────────────────────────────────────────────────────────────
-   Lattice — post-quantum migration console
+   QRBST Web Scanner — post-quantum migration
    Committed single dark treatment: this is an instrument console,
    and the 3D lattice field only reads correctly on a dark ground.
    Every colour is set explicitly so no host theme leaks through.
@@ -8,27 +8,27 @@
 :root {
   color-scheme: dark;
 
-  /* graded ground: cool shadows lifted slightly toward teal */
-  --void:    #070b12;
-  --abyss:   #0b1320;
-  --slate:   #101b2c;
-  --raised:  #16243a;
-  --edge:    #1e3048;
-  --edge-hi: #2b4566;
+  /* graded ground: neutral graphite ink, a hair of warmth so brass reads */
+  --void:    #0a0d12;
+  --abyss:   #0e1219;
+  --slate:   #141922;
+  --raised:  #1b222d;
+  --edge:    #28313f;
+  --edge-hi: #3a4858;
 
   /* text */
-  --snow:    #e9f0f9;
-  --mist:    #93a7c4;
-  --dim:     #65789a;
+  --snow:    #eceff4;
+  --mist:    #9aa7b8;
+  --dim:     #6b7889;
 
-  /* accents */
-  --phosphor: #35e8d0;
-  --violet:   #7c6bff;
+  /* accents — cerulean does the everyday work, brass is the one bold note */
+  --phosphor: #4f93d4;   /* primary signal (kept name; now cerulean) */
+  --violet:   #e3b64a;   /* signature accent (kept name; now brass-gold) */
 
-  /* semantic severity — separate from the accent hue */
-  --high:   #ff5c72;
-  --medium: #ffb244;
-  --safe:   #35e8d0;
+  /* semantic severity — a tuned, separate scale from the brand hue */
+  --high:   #e5484d;
+  --medium: #e8972e;
+  --safe:   #43a784;
 
   --radius: 14px;
   --radius-sm: 9px;
@@ -184,10 +184,7 @@ h1 {
   letter-spacing: -.5px;
   margin: 0 0 20px;
   text-wrap: balance;
-  background: linear-gradient(170deg, var(--snow) 32%, #a9bdd8 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--snow);
 }
 .lede {
   font-size: 16.5px;
@@ -293,7 +290,7 @@ h1 {
 .field input:focus-visible, .field select:focus-visible {
   outline: none;
   border-color: var(--phosphor);
-  box-shadow: 0 0 0 3px rgba(53, 232, 208, .22);
+  box-shadow: 0 0 0 3px rgba(79, 147, 212, .25);
 }
 
 .dropzone {
@@ -307,7 +304,7 @@ h1 {
   border: 1.5px dashed var(--edge-hi);
   border-radius: var(--radius);
   background:
-    radial-gradient(80% 140% at 50% 0%, rgba(124, 107, 255, .11), transparent 70%),
+    radial-gradient(80% 140% at 50% 0%, rgba(79, 147, 212, .12), transparent 70%),
     var(--void);
   cursor: pointer;
   transition: border-color .18s, transform .18s, box-shadow .18s;
@@ -356,8 +353,8 @@ h1 {
 }
 .btn:active { transform: translateY(1px); }
 .btn-primary {
-  background: linear-gradient(150deg, var(--phosphor), #16b9a6);
-  color: #04120f;
+  background: linear-gradient(150deg, #66aef0, #4384c6);
+  color: #07131f;
   box-shadow: 0 12px 28px -14px var(--phosphor), 0 1px 0 rgba(255,255,255,.3) inset;
 }
 .btn-primary:hover { box-shadow: 0 16px 34px -12px var(--phosphor), 0 1px 0 rgba(255,255,255,.4) inset; }
@@ -493,8 +490,8 @@ h1 {
   gap: 6px;
   padding: 22px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(53, 232, 208, .4);
-  background: rgba(53, 232, 208, .07);
+  border: 1px solid rgba(67, 167, 132, .45);
+  background: rgba(67, 167, 132, .08);
   text-align: center;
 }
 .empty-safe strong { font-family: var(--font-display); color: var(--safe); font-size: 16px; }
@@ -504,8 +501,8 @@ h1 {
   margin-top: 18px;
   padding: 13px 15px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(124, 107, 255, .45);
-  background: rgba(124, 107, 255, .1);
+  border: 1px solid rgba(227, 182, 74, .45);
+  background: rgba(227, 182, 74, .1);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -513,7 +510,7 @@ h1 {
   flex-wrap: wrap;
 }
 .pqbox-k { font-family: var(--font-mono); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--mist); }
-.pqbox-v { font-family: var(--font-mono); font-size: 13px; color: #b9b0ff; }
+.pqbox-v { font-family: var(--font-mono); font-size: 13px; color: #e8c878; }
 
 /* ─────────── tables ─────────── */
 .table-scroll { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--edge); }
@@ -538,7 +535,7 @@ h1 {
   color: var(--mist);
 }
 .ftable tbody tr:last-child td { border-bottom: 0; }
-.ftable tbody tr:hover td { background: rgba(53, 232, 208, .04); }
+.ftable tbody tr:hover td { background: rgba(79, 147, 212, .05); }
 .ftable td:first-child {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -636,9 +633,9 @@ code, .cell-match {
   letter-spacing: .06em;
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(124, 107, 255, .15);
-  border: 1px solid rgba(124, 107, 255, .45);
-  color: #b9b0ff;
+  background: rgba(227, 182, 74, .14);
+  border: 1px solid rgba(227, 182, 74, .45);
+  color: #e8c878;
   white-space: nowrap;
 }
 .step-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
@@ -718,7 +715,7 @@ pre .c { color: var(--dim); }
   gap: 8px;
 }
 .outbox strong { color: var(--snow); font-family: var(--font-display); }
-.outbox.ok   { border-color: rgba(53, 232, 208, .45); }
+.outbox.ok   { border-color: rgba(67, 167, 132, .5); }
 .outbox.warn { border-color: rgba(255, 178, 68, .45); }
 .outbox.err  { border-color: rgba(255, 92, 114, .45); }
 .outbox a { color: var(--phosphor); overflow-wrap: anywhere; }

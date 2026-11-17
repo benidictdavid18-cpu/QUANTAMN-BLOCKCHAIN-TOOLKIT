@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lattice — Post-Quantum Migration Console</title>
+<title>QRBST Web Scanner — Post-Quantum Migration</title>
 <meta name="description" content="Scan blockchain and smart contract source for quantum-vulnerable cryptography and plan the migration to NIST post-quantum standards.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,7 +18,7 @@
   <div class="topbar-in">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-text">Lattice<span class="brand-sub">PQ Migration Console</span></span>
+      <span class="brand-text">QRBST<span class="brand-sub">Web Scanner</span></span>
     </div>
     <nav class="topnav">
       <a href="#console">Console</a>
@@ -38,7 +38,7 @@
     <p class="eyebrow">NIST FIPS 203 · 204 · 205</p>
     <h1>Find the cryptography<br>a quantum computer breaks.</h1>
     <p class="lede">
-      Upload Solidity, Python, JavaScript or Go source. Lattice locates every
+      Upload Solidity, Python, JavaScript or Go source. QRBST locates every
       active call site using ECDSA, RSA, Diffie–Hellman, SHA-256 or short-key
       AES, scores the exposure, and writes the migration to module-lattice
       replacements. Nothing leaves this browser.
@@ -184,7 +184,7 @@
     <div class="panel">
       <div class="panel-head">
         <h2>Deliverables</h2>
-        <p>Generated in-browser. The on-chain proof uses your own wallet, so no key is held by this site.</p>
+        <p>Generated in-browser. The Bitcoin timestamp is free and needs no wallet: only a hash leaves this page.</p>
       </div>
       <div class="actions">
         <button class="act act-code" id="btnMigrate">
@@ -204,8 +204,8 @@
           <span class="act-d">Issued only at zero findings</span>
         </button>
         <button class="act act-chain" id="btnChain">
-          <span class="act-k">Anchor proof</span>
-          <span class="act-d">Sepolia, via your wallet</span>
+          <span class="act-k">Timestamp proof</span>
+          <span class="act-d">Bitcoin, free, no wallet</span>
         </button>
       </div>
       <div class="outbox" id="outBox" hidden></div>
@@ -277,7 +277,7 @@
 <footer class="foot">
   <div class="foot-in">
     <div>
-      <strong>Lattice</strong> — post-quantum migration console.
+      <strong>QRBST Web Scanner</strong> — post-quantum migration.
       Analysis is lexical and runs entirely client-side.
     </div>
     <div class="foot-links">
@@ -288,8 +288,7 @@
   </div>
 </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="app.js"></script>
 </body>
 </html>

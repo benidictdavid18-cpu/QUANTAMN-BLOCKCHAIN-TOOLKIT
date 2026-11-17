@@ -1,5 +1,5 @@
 /* ───────────────────────────────────────────────────────────────
-   Lattice — post-quantum migration console (client side)
+   QRBST Web Scanner — post-quantum migration (client side)
 
    The detection logic here is a direct port of backend/crypto_scanner.py:
    same pattern set, same comment/string masking, same per-line
@@ -22,9 +22,12 @@ const VULNERABLE = {
       /eth_keys\.keys/gi,
       /Web3\.eth\.account/gi,
       /SigningKey\.generate/gi,
+      /\bed25519/gi,
+      /\beddsa\b/gi,
     ],
-    description: 'Elliptic Curve Digital Signature Algorithm (vulnerable to quantum attacks)',
+    description: 'Elliptic-curve signatures, incl. ECDSA and Ed25519/EdDSA (broken by Shor’s algorithm)',
     severity: 'HIGH',
+    quantumThreat: 'shor',
   },
   RSA: {
     patterns: [
@@ -33,8 +36,9 @@ const VULNERABLE = {
       /from\s+Crypto\.PublicKey\s+import\s+RSA/gi,
       /from\s+cryptography\.hazmat\.primitives\.asymmetric\s+import\s+rsa/gi,
     ],
-    description: 'RSA encryption (vulnerable to Shor’s algorithm)',
+    description: 'RSA encryption (broken by Shor’s algorithm)',
     severity: 'HIGH',
+    quantumThreat: 'shor',
   },
   SHA256: {
     patterns: [
@@ -43,25 +47,42 @@ const VULNERABLE = {
       /\bkeccak256\s*\(/gi,
       /\bSHA256\s*\./gi,
     ],
-    description: 'SHA-256 hashing (preimage security halved by Grover search)',
-    severity: 'MEDIUM',
+    description: 'SHA-256 hashing. Grover gives a quadratic speedup only, leaving ~128-bit effective preimage resistance — NOT a Shor-style break like RSA/ECDSA. Review only where a digest must stay collision-bound for decades; prefer SHA-384/512 there.',
+    severity: 'LOW',
+    quantumThreat: 'grover',
   },
   DH: {
     patterns: [
       /\bdiffie[-_ ]?hellman/gi,
       /\bDH\.(?:generate|new)\b/gi,
       /\bECDH\b/gi,
+      /\bx25519/gi,
+      /\bcurve25519/gi,
     ],
-    description: 'Diffie–Hellman key exchange (vulnerable to quantum attacks)',
+    description: 'Diffie–Hellman / ECDH key exchange, incl. X25519/Curve25519 (broken by Shor’s algorithm)',
     severity: 'HIGH',
+    quantumThreat: 'shor',
   },
   AES_SHORT: {
     patterns: [
       /AES\.new\([^)]*?,\s*AES\.MODE_/gi,
       /\bAES[-_]128\b/gi,
     ],
-    description: 'AES with potentially insufficient key length for quantum resistance',
+    description: 'AES with potentially insufficient key length. Grover halves the effective key strength, so AES-128 retains ~64 bits; AES-256 remains comfortable. Not a Shor-style break.',
     severity: 'MEDIUM',
+    quantumThreat: 'grover',
+  },
+  DES3: {
+    patterns: [
+      /\bDES3\.new\s*\(/gi,
+      /\bDES\.new\s*\(/gi,
+      /from\s+Crypto\.Cipher\s+import\s+(?:DES3|DES)\b/gi,
+      /\bTripleDES\b/gi,
+      /\bDESede\b/gi,
+    ],
+    description: 'DES / Triple-DES symmetric cipher. The effective key is short (DES 56-bit, 3DES ~112-bit) and Grover halves it further. Ranked HIGH for urgency because both are already broken/deprecated today (NIST SP 800-131A), independent of quantum. The quantum mechanism is still Grover, not a Shor-style break — migrate to AES-256.',
+    severity: 'HIGH',
+    quantumThreat: 'grover',
   },
 };
 
@@ -94,6 +115,86 @@ function lineAt(text, offset) {
   return n;
 }
 
+/* ── AES key-size resolver: parity with backend/qrbst/pyast.py ──
+   The AES.new(...) pattern cannot see the key length, so AES-256 was reported
+   as a short key. Recover the key size by a small data-flow pass over masked
+   code. Like the Python side, only SIMPLE-NAME keys are followed; an
+   attribute-held key (self.session_key) stays unresolved and keeps its finding. */
+const KEY_LEN_CALL = /\b(?:urandom|get_random_bytes|token_bytes|randbytes)\s*\(\s*(\d+)\s*\)/;
+
+function pyBytesLiteralLen(body) {
+  let n = 0;
+  for (let i = 0; i < body.length; i++) {
+    if (body[i] === '\\') {
+      if (body[i + 1] === 'x') i += 3; else i += 1;
+    }
+    n++;
+  }
+  return n;
+}
+
+function keyBytesFromExpr(expr) {
+  const e = expr.trim();
+  let m = e.match(/^(?:bytes|bytearray)\s*\(\s*(\d+)\s*\)/);
+  if (m) return parseInt(m[1], 10);
+  m = e.match(KEY_LEN_CALL);
+  if (m) return parseInt(m[1], 10);
+  m = e.match(/^b(['"])((?:\\.|(?!\1)[^\\])*)\1/);
+  if (m) return pyBytesLiteralLen(m[2]);
+  return null;
+}
+
+function resolveAesKeyBits(code) {
+  const byName = new Map();
+  const assignRe = /(?:^|\n)[ \t]*([A-Za-z_]\w*)\s*=\s*([^\n]+)/g;
+  let a;
+  while ((a = assignRe.exec(code)) !== null) {
+    const b = keyBytesFromExpr(a[2]);
+    if (b !== null) byName.set(a[1], b);
+  }
+  const out = new Map();
+  const callRe = /AES\.new\(\s*([^,)\n]+?)\s*,/g;
+  let c;
+  while ((c = callRe.exec(code)) !== null) {
+    const keyArg = c[1].trim();
+    let b = keyBytesFromExpr(keyArg);
+    if (b === null && /^[A-Za-z_]\w*$/.test(keyArg)) b = byName.has(keyArg) ? byName.get(keyArg) : null;
+    out.set(lineAt(code, c.index), b === null ? null : b * 8);
+  }
+  return out;
+}
+
+function aesIsQuantumShort(bits) {
+  if (bits === null || bits === undefined) return null;
+  return bits < 256;
+}
+
+/* Direct aliases of a vulnerable callable, parity with pyast.resolve_alias_calls:
+   `name = hashlib.sha256` then `name(...)` -> (line, family). */
+const ALIAS_TARGETS = { 'hashlib.sha256': 'SHA256' };
+
+function escapeRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function resolveAliasCalls(code) {
+  const alias = new Map();
+  // RHS is a bare dotted reference ending the statement -- not a call (no '(').
+  const assignRe = /(?:^|\n)[ \t]*([A-Za-z_]\w*)\s*=\s*([A-Za-z_][\w.]*)[ \t]*(?=$|\n|#)/g;
+  let a;
+  while ((a = assignRe.exec(code)) !== null) {
+    const fam = ALIAS_TARGETS[a[2]];
+    if (fam) alias.set(a[1], fam);
+  }
+  const out = [];
+  if (alias.size) {
+    const callRe = new RegExp('\\b(' + [...alias.keys()].map(escapeRe).join('|') + ')\\s*\\(', 'g');
+    let c;
+    while ((c = callRe.exec(code)) !== null) out.push([lineAt(code, c.index), alias.get(c[1])]);
+  }
+  return out;
+}
+
 function detectLanguage(src) {
   if (/pragma\s+solidity/.test(src)) return 'Solidity';
   if (/contract\s+\w+\s*\{/.test(src)) return 'Solidity';
@@ -106,6 +207,7 @@ function detectLanguage(src) {
 function scanSource(filename, src) {
   const lines = src.split('\n');
   const code = maskNoncode(src);
+  const language = detectLanguage(src);
 
   // Collect every regex hit against masked (code-only) text.
   const raw = [];
@@ -124,8 +226,29 @@ function scanSource(filename, src) {
           line_content: (lines[ln - 1] || '').trim(),
           matched_pattern: m[0],
           quantum_vulnerable: true,
+          quantum_threat: def.quantumThreat || 'shor',
         });
       }
+    }
+  }
+
+  // Alias resolution (Python only), parity with crypto_scanner.py: a call
+  // through an aliased vulnerable callable has no primitive name at the call
+  // site, so add it before dedup as any other hit.
+  if (language === 'Python') {
+    for (const [ln, family] of resolveAliasCalls(code)) {
+      const def = VULNERABLE[family];
+      const lineText = (lines[ln - 1] || '').trim();
+      raw.push({
+        algorithm: family,
+        description: def.description,
+        severity: def.severity,
+        line_number: ln,
+        line_content: lineText,
+        matched_pattern: lineText || (family + ' (alias call)'),
+        quantum_vulnerable: true,
+        quantum_threat: def.quantumThreat || 'shor',
+      });
     }
   }
 
@@ -136,9 +259,20 @@ function scanSource(filename, src) {
     const prev = best.get(key);
     if (!prev || hit.matched_pattern.length > prev.matched_pattern.length) best.set(key, hit);
   }
-  const vulnerabilities = [...best.values()].sort(
+  let vulnerabilities = [...best.values()].sort(
     (a, b) => a.line_number - b.line_number || a.algorithm.localeCompare(b.algorithm)
   );
+
+  // AES key-size refinement (Python only), parity with crypto_scanner.py:
+  // drop AES.new findings proven to use a >=256-bit key. Unknown/<256 stay.
+  if (vulnerabilities.length && language === 'Python') {
+    const keyBits = resolveAesKeyBits(code);
+    vulnerabilities = vulnerabilities.filter((v) =>
+      !(v.algorithm === 'AES_SHORT'
+        && /^aes\.new/i.test(v.matched_pattern)
+        && aesIsQuantumShort(keyBits.get(v.line_number)) === false)
+    );
+  }
 
   // Names that appear only in prose: reported, never counted.
   const mentions = new Map();
@@ -169,7 +303,7 @@ function scanSource(filename, src) {
 
   return {
     file_path: filename,
-    language: detectLanguage(src),
+    language,
     total_lines: lines.length,
     vulnerabilities,
     vulnerability_count: vulnerabilities.length,
@@ -259,6 +393,15 @@ key = os.urandom(32)                     # 256-bit
 cipher = AES.new(key, AES.MODE_GCM)
 ciphertext, tag = cipher.encrypt_and_digest(plaintext)`,
   },
+  DES3: {
+    replacement: 'AES-256-GCM', standard: 'FIPS 197',
+    note: 'DES and Triple-DES are deprecated (NIST SP 800-131A) and short-keyed, which Grover makes worse. Replace with a 256-bit AEAD cipher; in payments, plan the key-ceremony and HSM changes alongside.',
+    python: `from Crypto.Cipher import AES
+
+key = os.urandom(32)                     # 256-bit, replaces DES/3DES
+cipher = AES.new(key, AES.MODE_GCM)
+ciphertext, tag = cipher.encrypt_and_digest(plaintext)`,
+  },
 };
 
 function buildPlan(scan) {
@@ -268,7 +411,7 @@ function buildPlan(scan) {
     groups.get(v.algorithm).push(v);
   }
 
-  const order = ['ECDSA', 'RSA', 'DH', 'AES_SHORT', 'SHA256'];
+  const order = ['ECDSA', 'RSA', 'DH', 'AES_SHORT', 'DES3', 'SHA256'];
   const steps = [];
   for (const algo of order) {
     if (!groups.has(algo)) continue;
@@ -321,7 +464,7 @@ function applyMigrations(scan) {
 
   const header = [
     `${c} ==============================================================`,
-    `${c} POST-QUANTUM MIGRATION PLAN - generated by Lattice`,
+    `${c} POST-QUANTUM MIGRATION PLAN - generated by QRBST`,
     `${c} Source: ${scan.file_path}   Language: ${scan.language}`,
     `${c} Findings: ${scan.vulnerability_count} across ${plan.families} algorithm family(ies)`,
     `${c} Exposure: ${riskScore(scan).total}/100   Effort: ${plan.complexity} (${plan.timeline})`,
@@ -365,6 +508,7 @@ function buildCbom(scan, meta) {
         },
       },
       properties: [
+        { name: 'quantumThreat', value: hits[0].quantum_threat || 'shor' },
         { name: 'quantumVulnerable', value: 'true' },
         { name: 'severity', value: hits[0].severity },
         { name: 'occurrences', value: String(hits.length) },
@@ -382,7 +526,7 @@ function buildCbom(scan, meta) {
     version: 1,
     metadata: {
       timestamp: meta.timestamp,
-      tools: [{ vendor: 'Lattice', name: 'pq-migration-console', version: '2.0.0' }],
+      tools: [{ vendor: 'QRBST', name: 'web-scanner', version: '2.0.0' }],
       component: { type: 'file', name: scan.file_path, 'bom-ref': 'file/' + meta.scanId },
       properties: [
         { name: 'language', value: scan.language },
@@ -584,7 +728,6 @@ function render() {
     : `<div class="empty-safe"><strong>Already post-quantum</strong>
        <span>No classical primitives remain in this file.</span></div>`;
 
-  $('btnBadge').disabled = scan.vulnerability_count > 0;
 }
 
 function out(html, kind) {
@@ -596,7 +739,8 @@ function out(html, kind) {
 
 /* ═══════════════ scanning ═══════════════ */
 
-function runScan(filename, src) {
+function runScan(filename, src, fromUser = false) {
+  state.fromUser = fromUser;
   const scan = scanSource(filename, src);
   state.scan = scan;
   state.risk = riskScore(scan);
@@ -611,6 +755,18 @@ function runScan(filename, src) {
   };
   render();
   $('outBox').hidden = true;
+  // Counts only, never source. Only the hosted site listens for this, to keep
+  // the signed-in user's scan history; on GitHub Pages nothing hears it. The
+  // bundled examples are not the user's code, so they are not recorded.
+  if (fromUser) document.dispatchEvent(new CustomEvent('qrbst:scan', { detail: {
+    filename: filename.slice(0, 255) || 'untitled',
+    language: scan.language,
+    lines: scan.total_lines,
+    findings: scan.vulnerability_count,
+    high: scan.vulnerabilities.filter((v) => v.severity === 'HIGH').length,
+    risk: Math.round(state.risk.total),
+    algorithms: [...new Set(scan.vulnerabilities.map((v) => v.algorithm))].slice(0, 30),
+  } }));
 }
 
 /* ═══════════════ deliverables ═══════════════ */
@@ -669,43 +825,43 @@ function doReport() {
     doc.text(String(s), M, y);
   };
 
-  doc.setFillColor('#0b1320');
+  doc.setFillColor('#0e1219');
   doc.rect(0, 0, W, 86, 'F');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor('#e9f0f9');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor('#eceff4');
   doc.text('LATTICE', M, 40);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor('#35e8d0');
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor('#4f93d4');
   doc.text('POST-QUANTUM MIGRATION ASSESSMENT', M, 58);
-  doc.setTextColor('#93a7c4');
+  doc.setTextColor('#9aa7b8');
   doc.text(new Date(meta.timestamp).toLocaleString(), W - M, 58, { align: 'right' });
 
   y = 126;
   text(TITLES[type] || TITLES.General, 13, 'bold'); line(26);
 
-  text('ORGANISATION', 8, 'bold', '#65789a'); line(14);
+  text('ORGANISATION', 8, 'bold', '#6b7889'); line(14);
   text(meta.company, 11, 'bold'); line(15);
   text(`Sector: ${meta.sector}`, 10); line(14);
   text(`Contact: ${meta.email || 'not supplied'}`, 10); line(14);
   text(`Artefact: ${meta.filename}  (${scan.language}, ${scan.total_lines} lines)`, 10); line(14);
-  text(`Assessment ID: ${meta.scanId}`, 9, 'normal', '#65789a'); line(26);
+  text(`Assessment ID: ${meta.scanId}`, 9, 'normal', '#6b7889'); line(26);
 
   doc.setFillColor(risk.total === 0 ? '#e8faf6' : risk.total < 60 ? '#fff6e6' : '#ffecef');
   doc.roundedRect(M, y - 12, W - M * 2, 62, 6, 6, 'F');
-  text('EXPOSURE SCORE', 8, 'bold', '#65789a'); line(22);
+  text('EXPOSURE SCORE', 8, 'bold', '#6b7889'); line(22);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(24);
   doc.setTextColor(risk.total === 0 ? '#0f7a68' : risk.total < 60 ? '#9a6200' : '#c0243c');
   doc.text(`${risk.total} / 100`, M, y);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor('#1a2433');
   doc.text(`${scan.vulnerability_count} vulnerable call site(s) across ${plan.families} family(ies)`, M + 130, y - 6);
-  doc.setFontSize(9); doc.setTextColor('#65789a');
+  doc.setFontSize(9); doc.setTextColor('#6b7889');
   doc.text(`Severity ${risk.base}/60 · breadth ${risk.breadth}/20 · density ${risk.density}/20`, M + 130, y + 9);
   line(44);
 
-  text('FINDINGS', 8, 'bold', '#65789a'); line(18);
+  text('FINDINGS', 8, 'bold', '#6b7889'); line(18);
   if (!scan.vulnerability_count) {
     text('No quantum-vulnerable cryptographic call sites were detected.', 10); line(20);
   } else {
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold'); doc.setTextColor('#65789a');
+    doc.setFont('helvetica', 'bold'); doc.setTextColor('#6b7889');
     doc.text('LINE', M, y); doc.text('FAMILY', M + 48, y);
     doc.text('SEV', M + 140, y); doc.text('CALL SITE', M + 190, y);
     line(6);
@@ -725,12 +881,12 @@ function doReport() {
     line(10);
   }
 
-  text('REQUIRED MIGRATION', 8, 'bold', '#65789a'); line(18);
+  text('REQUIRED MIGRATION', 8, 'bold', '#6b7889'); line(18);
   for (const s of plan.steps) {
     text(`${s.algorithm} → ${s.replacement}  (${s.standard})`, 10, 'bold'); line(14);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor('#48566e');
     for (const ln of doc.splitTextToSize(s.note, W - M * 2)) { doc.text(ln, M, y); line(12); }
-    doc.setTextColor('#65789a');
+    doc.setTextColor('#6b7889');
     doc.text(`Lines: ${s.lines.join(', ')}`, M, y); line(20);
     doc.setTextColor('#1a2433');
   }
@@ -738,7 +894,7 @@ function doReport() {
 
   text(`Estimated effort: ${plan.complexity} — ${plan.timeline}`, 10, 'bold'); line(28);
 
-  text('APPLICABLE STANDARDS', 8, 'bold', '#65789a'); line(14);
+  text('APPLICABLE STANDARDS', 8, 'bold', '#6b7889'); line(14);
   doc.setFontSize(9); doc.setTextColor('#48566e');
   for (const ln of [
     'NIST FIPS 203 (ML-KEM) · FIPS 204 (ML-DSA) · FIPS 205 (SLH-DSA)',
@@ -746,7 +902,7 @@ function doReport() {
     'ISO/IEC 27001 Information Security Management',
   ]) { doc.text(ln, M, y); line(13); }
   line(10);
-  doc.setTextColor('#65789a'); doc.setFontSize(8);
+  doc.setTextColor('#6b7889'); doc.setFontSize(8);
   for (const ln of doc.splitTextToSize(
     'Method: lexical analysis over comment- and string-masked source, with per-line '
     + 'deduplication. Detects cryptographic API usage; does not detect misuse of a correctly '
@@ -754,7 +910,7 @@ function doReport() {
     + 'assessment is a migration worklist and is not a substitute for a cryptographic audit.',
     W - M * 2)) { doc.text(ln, M, y); line(11); }
 
-  doc.save(`lattice_${type}_${meta.scanId.slice(0, 8)}.pdf`);
+  doc.save(`qrbst_${type}_${meta.scanId.slice(0, 8)}.pdf`);
   out(`<strong>${esc(type)} report generated</strong>
        <span>${doc.internal.getNumberOfPages()} page(s), covering ${scan.vulnerability_count} finding(s)
        and ${plan.families} migration step(s).</span>`, 'ok');
@@ -766,6 +922,12 @@ function doBadge() {
     out(`<strong>Not certified</strong>
          <span>${scan.vulnerability_count} quantum-vulnerable finding(s) remain. Apply the
          migration, then re-scan the migrated file to qualify.</span>`, 'warn');
+    return;
+  }
+  if (scan.language === 'Unknown') {
+    out(`<strong>Not certified</strong>
+         <span>This file's language was not recognised, so finding nothing in it is not
+         evidence that it is quantum-safe. Supported: Solidity, Python, JavaScript, Go.</span>`, 'warn');
     return;
   }
 
@@ -780,24 +942,24 @@ function doBadge() {
   x.scale(S, S);
 
   const grad = x.createLinearGradient(0, 0, 820, 520);
-  grad.addColorStop(0, '#0b1320'); grad.addColorStop(1, '#101b2c');
+  grad.addColorStop(0, '#0e1219'); grad.addColorStop(1, '#141922');
   x.fillStyle = grad; x.fillRect(0, 0, 820, 520);
 
-  x.strokeStyle = 'rgba(53,232,208,0.13)'; x.lineWidth = 1;
+  x.strokeStyle = 'rgba(79,147,212,0.12)'; x.lineWidth = 1;
   for (let i = 0; i <= 820; i += 34) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, 520); x.stroke(); }
   for (let j = 0; j <= 520; j += 34) { x.beginPath(); x.moveTo(0, j); x.lineTo(820, j); x.stroke(); }
 
-  x.strokeStyle = '#35e8d0'; x.lineWidth = 2;
+  x.strokeStyle = '#4f93d4'; x.lineWidth = 2;
   x.strokeRect(24, 24, 772, 472);
-  x.strokeStyle = 'rgba(124,107,255,0.55)';
+  x.strokeStyle = 'rgba(227,182,74,0.55)';
   x.strokeRect(34, 34, 752, 452);
 
   x.textAlign = 'center';
-  x.fillStyle = '#35e8d0';
+  x.fillStyle = '#4f93d4';
   x.font = '600 13px "IBM Plex Mono", monospace';
   x.fillText('QUANTUM-SAFE CERTIFICATION', 410, 96);
 
-  x.fillStyle = '#e9f0f9';
+  x.fillStyle = '#eceff4';
   x.font = '700 15px "IBM Plex Mono", monospace';
   x.fillText('NIST FIPS 203 / 204 / 205', 410, 124);
 
@@ -805,7 +967,7 @@ function doBadge() {
   const name = meta.company.length > 34 ? meta.company.slice(0, 33) + '…' : meta.company;
   x.fillText(name, 410, 196);
 
-  x.fillStyle = '#93a7c4';
+  x.fillStyle = '#9aa7b8';
   x.font = '400 14px "IBM Plex Sans", sans-serif';
   x.fillText(`${meta.sector} sector`, 410, 222);
 
@@ -819,13 +981,13 @@ function doBadge() {
 
   x.save();
   x.translate(410, 388); x.rotate(Math.PI / 4);
-  x.strokeStyle = '#35e8d0'; x.lineWidth = 2;
+  x.strokeStyle = '#4f93d4'; x.lineWidth = 2;
   x.strokeRect(-19, -19, 38, 38);
-  x.fillStyle = 'rgba(53,232,208,0.22)';
+  x.fillStyle = 'rgba(227,182,74,0.22)';
   x.fillRect(-12, -12, 24, 24);
   x.restore();
 
-  x.fillStyle = '#65789a';
+  x.fillStyle = '#6b7889';
   x.font = '400 11px "IBM Plex Mono", monospace';
   x.fillText(`CERTIFICATE ${badgeId}`, 410, 442);
   x.fillText(`${meta.filename}  ·  ${scan.language}  ·  ${scan.total_lines} lines`, 410, 460);
@@ -835,77 +997,79 @@ function doBadge() {
   cv.toBlob((blob) => {
     download(blob, `badge_${badgeId}.png`);
     out(`<strong>Badge issued — ${esc(badgeId)}</strong>
-         <span>Certificate downloaded. Anchor the proof on-chain to make it
-         independently verifiable.</span>
+         <span>Certificate downloaded. Timestamp the proof on Bitcoin to show when
+         it was issued.</span>
          <img src="${dataUrl}" alt="Quantum-safe certificate for ${esc(meta.company)}">`, 'ok');
   }, 'image/png');
 }
 
-/* ═══════════════ on-chain anchoring (viewer's wallet) ═══════════════ */
+/* ═══════════════ Bitcoin timestamp (OpenTimestamps, free) ═══════════════ */
 
-const CONTRACT = '0x9F7946197AD3693e79948a229AAf177fAC3644Bf';
-const ABI = ['function storeProof(string scanId, string company, uint256 riskScore, bytes32 dataHash)'];
-const SEPOLIA_HEX = '0xaa36a7';
+async function sha256Hex(bytes) {
+  const buf = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
-async function doChain() {
+function fileLink(blob, name, label) {
+  return `<a href="${URL.createObjectURL(blob)}" download="${esc(name)}">${esc(label)}</a>`;
+}
+
+/**
+ * Builds a proof document for this scan, hashes it here, and sends only that
+ * 32-byte hash to be timestamped on Bitcoin by the public OpenTimestamps
+ * calendars. No wallet, no key, no fees. The source is represented by its
+ * SHA-256, so the proof pins exactly which file was scanned without holding it.
+ */
+async function doTimestamp() {
   const btn = $('btnChain');
-  if (!window.ethereum) {
-    out(`<strong>No wallet detected</strong>
-         <span>Anchoring signs a Sepolia transaction from your own wallet, so this site
-         never holds a private key. Install a browser wallet such as MetaMask, or run the
-         Python backend from the repository if you prefer server-side anchoring.</span>`, 'warn');
-    return;
-  }
-  if (!window.ethers) {
-    out('<strong>Wallet library unavailable</strong><span>The ethers bundle did not load. Check the network and reload.</span>', 'err');
-    return;
-  }
-
   btn.disabled = true;
   try {
-    out('<strong>Awaiting wallet…</strong><span>Approve the connection, then the transaction.</span>');
-
-    const provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
-    await provider.send('eth_requestAccounts', []);
-
-    const net = await provider.getNetwork();
-    if (net.chainId !== 11155111) {
-      try {
-        await window.ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: SEPOLIA_HEX }],
-        });
-      } catch (switchErr) {
-        out('<strong>Wrong network</strong><span>Switch your wallet to Ethereum Sepolia and try again.</span>', 'warn');
-        return;
-      }
-    }
-
+    out('<strong>Timestamping…</strong><span>Sending one 32-byte hash to the free OpenTimestamps calendars.</span>');
     const { scan, meta, risk } = state;
-    const proof = JSON.stringify({
+    const enc = new TextEncoder();
+    const proofDoc = JSON.stringify({
+      tool: 'QRBST Web Scanner',
       scan_id: meta.scanId,
-      company_name: meta.company,
-      timestamp: meta.timestamp,
-      vulnerabilities_count: scan.vulnerability_count,
-      risk_score: risk.total,
-    });
-    const dataHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(proof));
+      scanned_at: meta.timestamp,
+      organisation: meta.company,
+      file: meta.filename,
+      source_sha256: await sha256Hex(enc.encode(scan.source)),
+      language: scan.language,
+      lines: scan.total_lines,
+      findings: scan.vulnerability_count,
+      risk_score: Math.round(risk.total),
+      algorithms: [...new Set(scan.vulnerabilities.map((v) => v.algorithm))],
+    }, null, 2);
+    const proofBytes = enc.encode(proofDoc);
+    const digest = await sha256Hex(proofBytes);
 
-    const signer = new ethers.providers.Web3Provider(window.ethereum, 'any').getSigner();
-    const contract = new ethers.Contract(CONTRACT, ABI, signer);
-    const tx = await contract.storeProof(meta.scanId, meta.company, Math.round(risk.total), dataHash);
+    let r;
+    try {
+      r = await fetch('/api/anchor', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ digest, label: meta.filename.slice(0, 255) }),
+      });
+    } catch (netErr) {
+      throw new Error('Could not reach the timestamp service. Check your connection and try again.');
+    }
+    if (r.status === 404 || r.status === 405) {
+      throw new Error('Timestamping runs on the hosted site. Sign in at qrbst.onrender.com to use it.');
+    }
+    if (r.status === 401) throw new Error('Your session has ended. Sign in again, then retry.');
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'The timestamp service failed.');
 
-    out(`<strong>Transaction submitted</strong>
-         <span>Waiting for confirmation…</span>
-         <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank" rel="noopener">${tx.hash}</a>`);
-
-    const receipt = await tx.wait();
-    out(`<strong>Proof anchored on Sepolia</strong>
-         <span>Block ${receipt.blockNumber} · digest <code>${dataHash.slice(0, 22)}…</code></span>
-         <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank" rel="noopener">View on Etherscan</a>`, 'ok');
+    const base = `qrbst_proof_${meta.scanId.slice(0, 8)}.json`;
+    const ots = await r.blob();
+    out(`<strong>Timestamp created on Bitcoin</strong>
+         <span>Download and keep both files. The calendars commit to a Bitcoin block within a
+         few hours. After that, anyone can verify by dropping both files on opentimestamps.org.</span>
+         ${fileLink(new Blob([proofBytes], { type: 'application/json' }), base, 'Proof document (.json)')}
+         ${fileLink(ots, base + '.ots', 'Timestamp proof (.ots)')}
+         <span>Digest <code>${digest.slice(0, 22)}…</code></span>`, 'ok');
   } catch (err) {
-    const msg = (err && (err.reason || err.message)) || String(err);
-    out(`<strong>Anchoring failed</strong><span>${esc(msg.slice(0, 220))}</span>`, 'err');
+    out(`<strong>Timestamp failed</strong><span>${esc(String((err && err.message) || err).slice(0, 220))}</span>`, 'err');
   } finally {
     btn.disabled = false;
   }
@@ -913,7 +1077,7 @@ async function doChain() {
 
 /* ═══════════════ lattice field ═══════════════ */
 
-function startLattice() {
+function startScanner() {
   const cv = $('lattice');
   if (!cv || !cv.getContext) return;
   const x = cv.getContext('2d');
@@ -977,7 +1141,7 @@ function startLattice() {
     for (const p of proj) {
       const alpha = p.s * 0.7 - 0.1;
       if (alpha <= 0.01) continue;
-      x.fillStyle = `rgba(53,232,208,${Math.min(0.42, alpha * 0.5)})`;
+      x.fillStyle = `rgba(79,147,212,${Math.min(0.42, alpha * 0.5)})`;
       x.beginPath(); x.arc(p.sx, p.sy, Math.max(0.4, p.s * 1.5), 0, Math.PI * 2); x.fill();
     }
 
@@ -993,14 +1157,14 @@ function readFile(file) {
   const reader = new FileReader();
   reader.onload = () => {
     $('fileName').textContent = `${file.name} · ${(file.size / 1024).toFixed(1)} kB · never uploaded`;
-    runScan(file.name, String(reader.result || ''));
+    runScan(file.name, String(reader.result || ''), true);
     $('findings').scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   reader.readAsText(file);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  startLattice();
+  startScanner();
 
   const dz = $('dropZone');
   const input = $('codeFile');
@@ -1025,7 +1189,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('scanForm').addEventListener('submit', (e) => {
     e.preventDefault();
     if (input.files && input.files[0]) readFile(input.files[0]);
-    else if (state.scan) runScan(state.meta.filename, state.scan.source);
+    else if (state.scan) runScan(state.meta.filename, state.scan.source, state.fromUser);
     else runScan('ConsentRegistry.sol', EXAMPLE_SOL);
   });
 
@@ -1044,7 +1208,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btnCbom').addEventListener('click', doCbom);
   $('btnReport').addEventListener('click', doReport);
   $('btnBadge').addEventListener('click', doBadge);
-  $('btnChain').addEventListener('click', doChain);
+  $('btnChain').addEventListener('click', doTimestamp);
 
   // Open in a real working state rather than an empty shell.
   runScan('ConsentRegistry.sol', EXAMPLE_SOL);
