@@ -15,8 +15,8 @@ const VULNERABLE = {
   ECDSA: {
     patterns: [
       /ecrecover\s*\(/gi,
-      // Bare name: ec.ECDSA(...), import {ECDSA}, using ECDSA for.
-      /\bECDSA\b/gi,
+      /(?<![A-Za-z0-9])(?<!id_)ECDSA\d*(?![A-Za-z0-9_])/gi,
+      /\bECDSA_(?:sign|verify|do_sign|do_verify|size|SIG_\w+|P(?:256|384)_\w+)\b/gi,
       /\bsecp256k1\b/gi,
       /elliptic\.curve/gi,
       /from\s+ecdsa\s+import/gi,
@@ -24,23 +24,52 @@ const VULNERABLE = {
       /eth_keys\.keys/gi,
       /Web3\.eth\.account/gi,
       /SigningKey\.generate/gi,
-      /\bed25519/gi,
+      /(?<![A-Za-z0-9])(?<!id_)ed(?:25519|448)/gi,
       /\beddsa\b/gi,
-      // NIST P-256/384/521 and the other named curves.
       /\bsec[pt]\d{3}[rk][12]\b/gi,
       /\bprime(?:192|239|256)v[123]\b/gi,
       /\bNIST(?:192|224|256|384|521)p\b/gi,
       /\bbrainpoolP\d{3}[rt]1\b/gi,
       /\belliptic\.P(?:224|256|384|521)\b/gi,
+      /\bEC(?:Public|Private)Key(?:Spec)?\b/gi,
+      /\bECDSASigner\b/gi,
+      /\bEC_KEY_\w+/gi,
+      /\bEVP_PKEY_EC\b/gi,
+      /\bNID_(?:X9_62_prime\d+v\d|secp\d+[rk]1|brainpoolP\d+r1)\b/gi,
+      /#include\s*<openssl\/(?:ec|ecdsa)\.h>/gi,
+      /\b(?:p256|p384|p521|k256)::/gi,
+      /\bjava\.security\.(?:spec|interfaces)\.EC\w*/gi,
+      /\bEllipticCurve(?:Public|Private)(?:Key|Numbers)\b/gi,
+      /\bEdDSA[A-Za-z]\w*/gi,
     ],
-    // Algorithm named in a string argument of a known crypto call.
     calls: [
-      /\bgenerateKeyPair(?:Sync)?\)?\s*\(\s*['"`](?:ec|ed25519|ed448)['"`]/gi,
-      /\bname\s*:\s*['"`](?:ECDSA|Ed25519)['"`]/gi,
-      /\bnamedCurve\s*:\s*['"`](?:P-(?:256|384|521)|secp256k1|prime256v1)['"`]/gi,
+      /\bgenerateKeyPair(?:Sync)?\)?\s*\(\s*['\"`](?:ec|ed25519|ed448)['\"`]/gi,
+      /\bname\s*:\s*['\"`](?:ECDSA|Ed25519)['\"`]/gi,
+      /\bnamedCurve\s*:\s*['\"`](?:P-(?:256|384|521)|secp256k1|prime256v1)['\"`]/gi,
+      /\bgetInstance\s*\(\s*['\"`](?:EC|ECDSA|Ed25519|Ed448|EdDSA)['\"`]/gi,
+      /\bgetInstance\s*\(\s*['\"`][\w-]*withECDSA/gi,
+      /\bECGenParameterSpec\s*\(\s*['\"`]/gi,
+      /\b(?:curve|curve_name|crv)\s*(?:==|!=|=)\s*['\"`](?:ed25519|ed448|secp\d{3}[rk]1|prime\d{3}v\d|P-(?:256|384|521)|brainpoolP\d{3}r1)['\"`]/gi,
+    ],
+    config: [
+      /\b(?:algorithm|key_?algorithm|keyAlgorithm|key_?type|keyType)\s*[:=]\s*[\"']?(?:ECDSA|ED25519|EdDSA|EC_)/gi,
+      /\b(?:key_?spec|customer_master_key_spec)\s*[:=]\s*[\"']?ECC_/gi,
+      /\becdsa_curve\s*[:=]/gi,
+      /(?<![A-Za-z0-9!])aECDSA(?![A-Za-z0-9])/gi,
+      /(?<![A-Za-z0-9!])(?:ECDHE-)?ECDSA-(?:AES|CHACHA20|DES|3DES|CAMELLIA|NULL)/gi,
+      /\bTLS_ECDHE_ECDSA_WITH_/gi,
+      /\becdsa-sha2-nistp\d+/gi,
+      /\bsec[pt]\d{3}[rk][12]\b/gi,
+      /\bprime(?:192|239|256)v[123]\b/gi,
+      /\bbrainpoolP\d{3}[rt]1\b/gi,
+      /(?<![A-Za-z0-9!])(?<!id_)ed(?:25519|448)/gi,
+    ],
+    go_imports: [
+      /^[ \t]*(?:import[ \t]+)?(?:[A-Za-z_.]\w*[ \t]+)?\"(?:crypto\/(?:ecdsa|ed25519|elliptic)|golang\.org\/x\/crypto\/ed25519)\"/gim,
     ],
     description: 'Elliptic-curve signatures, incl. ECDSA and Ed25519/EdDSA (broken by Shor’s algorithm)',
     severity: 'HIGH',
+    quantumVulnerable: true,
     quantumThreat: 'shor',
   },
   RSA: {
@@ -49,61 +78,125 @@ const VULNERABLE = {
       /\brsa\.newkeys\b/gi,
       /from\s+Crypto\.PublicKey\s+import\s+RSA/gi,
       /from\s+cryptography\.hazmat\.primitives\.asymmetric\s+import\s+rsa/gi,
-      // Node's public/private encrypt/decrypt are RSA-only.
       /\b(?:public|private)(?:En|De)crypt\s*\(/gi,
+      /\bRSA(?:Public|Private)(?:Crt)?Key(?:Spec|Parameters)?\b/gi,
+      /\bRSACryptoServiceProvider\b/gi,
+      /\bRSA_(?:generate_key(?:_ex)?|new|sign|verify|public_encrypt|private_decrypt|private_encrypt|public_decrypt)\b/gi,
+      /\bEVP_PKEY_RSA\b/gi,
+      /#include\s*<openssl\/rsa\.h>/gi,
+      /\buse\s+rsa::/gi,
+      /\bPKCS1_(?:OAEP|v1_5)\b/gi,
+      /\bjava\.security\.(?:spec|interfaces)\.RSA\w*/gi,
+      /\bpadding\.(?:PKCS1v15|PSS|OAEP)\b/gi,
     ],
     calls: [
-      /\bgenerateKeyPair(?:Sync)?\)?\s*\(\s*['"`]rsa(?:-pss)?['"`]/gi,
-      /\bcreate(?:Sign|Verify)\)?\s*\(\s*['"`]rsa-/gi,
-      /\bname\s*:\s*['"`](?:RSA-OAEP|RSA-PSS|RSASSA-PKCS1-v1_5)['"`]/gi,
+      /\bgenerateKeyPair(?:Sync)?\)?\s*\(\s*['\"`]rsa(?:-pss)?['\"`]/gi,
+      /\bcreate(?:Sign|Verify)\)?\s*\(\s*['\"`]rsa-/gi,
+      /\bname\s*:\s*['\"`](?:RSA-OAEP|RSA-PSS|RSASSA-PKCS1-v1_5)['\"`]/gi,
+      /\bgetInstance\s*\(\s*['\"`](?:RSA(?:\/|['\"`])|RSASSA-|RSA-(?:OAEP|PSS)|[\w-]*withRSA)/gi,
+    ],
+    config: [
+      /\b(?:algorithm|key_?algorithm|keyAlgorithm|key_?spec|customer_master_key_spec|key_?type|keyType)\s*[:=]\s*[\"']?RSA/gi,
+      /(?<![A-Za-z0-9!])(?:ECDHE-|DHE-|EDH-)?RSA-(?:AES|CHACHA20|DES|3DES|CAMELLIA|SEED|NULL)/gi,
+      /\bTLS_(?:(?:EC)?DHE_)?RSA_WITH_/gi,
+      /(?<![A-Za-z0-9!])[ak]RSA(?![A-Za-z0-9])/gi,
+      /\brsa_bits\s*[:=]/gi,
+      /\bssh-rsa\b/gi,
+    ],
+    go_imports: [
+      /^[ \t]*(?:import[ \t]+)?(?:[A-Za-z_.]\w*[ \t]+)?\"crypto\/rsa\"/gim,
     ],
     description: 'RSA encryption (broken by Shor’s algorithm)',
     severity: 'HIGH',
+    quantumVulnerable: true,
     quantumThreat: 'shor',
   },
   SHA256: {
     patterns: [
       /\bhashlib\.sha256\s*\(/gi,
+      /\b(?:digestmod|hashfunc|hash_name)\s*=\s*hashlib\.sha256\b/gi,
       /\bsha256\s*\(/gi,
       /\bkeccak256\s*\(/gi,
       /\bSHA256\s*\./gi,
+      /\bkeccak\s*\(/gi,
+      /from\s+hashlib\s+import\s+[^\n]*\bsha256\b/gi,
+      /\bSHA256_(?:Init|Update|Final)\b/gi,
+      /\bEVP_sha256\b/gi,
+      /\bsha256::/gi,
+      /\bsha2::Sha256\b/gi,
+      /\buse\s+sha2::[^;]*\bSha256\b/gi,
+      /\bSHA256_\w+\s*\(/gi,
+      /\bSHA256Hash\b/gi,
     ],
     calls: [
-      /\b(?:createHash|createHmac|createSign|createVerify|hashlib\.new)\)?\s*\(\s*['"`]sha-?256['"`]/gi,
-      /\bdigest\s*\(\s*(?:\{\s*name\s*:\s*)?['"`]sha-256['"`]/gi,
+      /\b(?:createHash|createHmac|createSign|createVerify|hashlib\.new)\)?\s*\(\s*['\"`]sha-?256['\"`]/gi,
+      /\bdigest\s*\(\s*(?:\{\s*name\s*:\s*)?['\"`]sha-256['\"`]/gi,
+      /\bgetInstance\s*\(\s*['\"`]SHA-?256['\"`]/gi,
+      /\b(?:hash_name|digestmod|hashfunc)\s*=\s*['\"`]sha-?256['\"`]/gi,
+    ],
+    go_imports: [
+      /^[ \t]*(?:import[ \t]+)?(?:[A-Za-z_.]\w*[ \t]+)?\"crypto\/sha256\"/gim,
     ],
     description: 'SHA-256 hashing. Grover gives a quadratic speedup only, leaving ~128-bit effective preimage resistance — NOT a Shor-style break like RSA/ECDSA. Review only where a digest must stay collision-bound for decades; prefer SHA-384/512 there.',
     severity: 'LOW',
+    quantumVulnerable: true,
     quantumThreat: 'grover',
   },
   DH: {
     patterns: [
       /\bdiffie[-_ ]?hellman/gi,
       /\bDH\.(?:generate|new)\b/gi,
-      /\bECDH\b/gi,
-      /\bx25519/gi,
-      /\bcurve25519/gi,
+      /(?<![A-Za-z0-9])ECDH\d*(?![A-Za-z0-9_])/gi,
+      /\bECDH_compute_key\b/gi,
+      /(?<![A-Za-z0-9])x(?:25519|448)/gi,
+      /(?<![A-Za-z0-9])curve25519/gi,
       /\bcreateECDH\s*\(/gi,
       /\bcreateDiffieHellman(?:Group)?\s*\(/gi,
+      /\bECDiffieHellman/gi,
+      /\bKeyAgreement\.getInstance\b/gi,
+      /\bDH_(?:new|generate_key|compute_key|generate_parameters(?:_ex)?)\b/gi,
+      /\bEVP_PKEY_DHX?\b/gi,
+      /#include\s*<openssl\/(?:dh|ecdh)\.h>/gi,
+      /\bjavax\.crypto\.(?:KeyAgreement\b|interfaces\.DH\w*|spec\.DH\w*)/gi,
     ],
     calls: [
-      /\bgenerateKeyPair(?:Sync)?\)?\s*\(\s*['"`](?:x25519|x448|dh)['"`]/gi,
-      /\bname\s*:\s*['"`](?:ECDH|X25519)['"`]/gi,
+      /\bgenerateKeyPair(?:Sync)?\)?\s*\(\s*['\"`](?:x25519|x448|dh)['\"`]/gi,
+      /\bname\s*:\s*['\"`](?:ECDH|X25519)['\"`]/gi,
+      /\bgetInstance\s*\(\s*['\"`](?:DH|DiffieHellman|ECDH|X25519|X448|XDH)['\"`]/gi,
+      /\b(?:curve|curve_name|crv)\s*(?:==|!=|=)\s*['\"`](?:x25519|x448|curve25519)['\"`]/gi,
+    ],
+    config: [
+      /(?<![A-Za-z0-9!])(?:ECDHE|DHE|EECDH|EDH|kEECDH|kEDH|kDHE|kECDHE)(?=[-_+:])/gi,
+      /\bssl_dhparam\b/gi,
+      /\bTLS_(?:EC)?DHE_/gi,
+      /(?<![A-Za-z0-9!])x(?:25519|448)/gi,
+      /\b(?:ssl_)?ecdh_curve\b/gi,
+    ],
+    go_imports: [
+      /^[ \t]*(?:import[ \t]+)?(?:[A-Za-z_.]\w*[ \t]+)?\"(?:crypto\/ecdh|golang\.org\/x\/crypto\/curve25519)\"/gim,
     ],
     description: 'Diffie–Hellman / ECDH key exchange, incl. X25519/Curve25519 (broken by Shor’s algorithm)',
     severity: 'HIGH',
+    quantumVulnerable: true,
     quantumThreat: 'shor',
   },
   AES_SHORT: {
     patterns: [
-      /AES\.new\([^)]*?,\s*AES\.MODE_/gi,
+      /AES\.new\(.*?,\s*AES\.MODE_/gi,
       /\bAES[-_]128\b/gi,
+      /\bEVP_aes_128_\w+/gi,
+      /\balgorithms\.AES128\b/gi,
     ],
     calls: [
-      /\bcreate(?:Cipher|Decipher)(?:iv)?\)?\s*\(\s*['"`]aes-128-/gi,
+      /\bcreate(?:Cipher|Decipher)(?:iv)?\)?\s*\(\s*['\"`]aes-128-/gi,
+      /\bgetInstance\s*\(\s*['\"`]AES_128/gi,
+    ],
+    config: [
+      /(?<![A-Za-z0-9!])AES[-_]?128(?![0-9])/gi,
     ],
     description: 'AES with potentially insufficient key length. Grover halves the effective key strength, so AES-128 retains ~64 bits; AES-256 remains comfortable. Not a Shor-style break.',
     severity: 'MEDIUM',
+    quantumVulnerable: true,
     quantumThreat: 'grover',
   },
   DES3: {
@@ -113,14 +206,82 @@ const VULNERABLE = {
       /from\s+Crypto\.Cipher\s+import\s+(?:DES3|DES)\b/gi,
       /\bTripleDES\b/gi,
       /\bDESede\b/gi,
+      /\bEVP_des_\w+/gi,
+      /\bDES_(?:ecb|cbc|ede3|ncbc)\w*/gi,
+      /\bDES\.Create\s*\(/gi,
     ],
     calls: [
-      /\bcreate(?:Cipher|Decipher)(?:iv)?\)?\s*\(\s*['"`]des(?:-|3|['"`])/gi,
+      /\bcreate(?:Cipher|Decipher)(?:iv)?\)?\s*\(\s*['\"`]des(?:-|3|['\"`])/gi,
+      /\bgetInstance\s*\(\s*['\"`](?:DES|DESede|TripleDES)(?:\/|['\"`])/gi,
+    ],
+    config: [
+      /(?<![A-Za-z0-9!])(?:3DES|DES-CBC3|DES-CBC|DES-EDE3)(?![A-Za-z0-9])/gi,
+    ],
+    go_imports: [
+      /^[ \t]*(?:import[ \t]+)?(?:[A-Za-z_.]\w*[ \t]+)?\"crypto\/des\"/gim,
     ],
     description: 'DES / Triple-DES symmetric cipher. The effective key is short (DES 56-bit, 3DES ~112-bit) and Grover halves it further. Ranked HIGH for urgency because both are already broken/deprecated today (NIST SP 800-131A), independent of quantum. The quantum mechanism is still Grover, not a Shor-style break — migrate to AES-256.',
     severity: 'HIGH',
+    quantumVulnerable: true,
     quantumThreat: 'grover',
   },
+  MD5_SHA1: {
+    patterns: [
+      /\bhashlib\.(?:md5|sha1)\s*\(/gi,
+      /\b(?:digestmod|hashfunc|hash_name)\s*=\s*hashlib\.(?:md5|sha1)\b/gi,
+      /\b(?:md5|sha1)\s*\(/gi,
+      /\b(?:MD5|SHA1)\s*\./gi,
+      /\b(?:MD5|SHA1)_(?:Init|Update|Final)\b/gi,
+      /\bEVP_(?:md5|sha1)\b/gi,
+      /from\s+hashlib\s+import\s+[^\n]*\b(?:md5|sha1)\b/gi,
+      /\b(?:md5|sha1)::/gi,
+      /\b(?:MD5|SHA1)_\w+\s*\(/gi,
+      /\b(?:MD5|SHA1)Hash\b/gi,
+      /\bhmac_?(?:md5|sha1)\s*\(/gi,
+    ],
+    calls: [
+      /\b(?:createHash|createHmac|hashlib\.new)\)?\s*\(\s*['\"`](?:md5|sha-?1)['\"`]/gi,
+      /\bgetInstance\s*\(\s*['\"`](?:MD5|SHA-?1)(?:['\"`]|with)/gi,
+      /\bdigest\s*\(\s*(?:\{\s*name\s*:\s*)?['\"`]sha-1['\"`]/gi,
+      /\b(?:hash_name|digestmod|hashfunc)\s*=\s*['\"`](?:md5|sha-?1)['\"`]/gi,
+    ],
+    config: [
+      /(?<![A-Za-z0-9!])hmac-(?:md5|sha1)(?![A-Za-z0-9])/gi,
+    ],
+    go_imports: [
+      /^[ \t]*(?:import[ \t]+)?(?:[A-Za-z_.]\w*[ \t]+)?\"crypto\/(?:md5|sha1)\"/gim,
+    ],
+    description: "MD5 / SHA-1 hashing. Collisions are practical today (SHA-1: SHAttered, 2017), so both are broken classically, independent of quantum. Not a quantum finding: replace with SHA-256 or better, SHA-384 where the digest must last.",
+    severity: 'MEDIUM',
+    quantumVulnerable: false,
+    quantumThreat: 'classical',
+  },
+};
+
+const PY_IMPORT_FAMILY = {
+  "rsa": 'RSA',
+  "ecdsa": 'ECDSA',
+  "cryptography.hazmat.primitives.asymmetric.rsa": 'RSA',
+  "cryptography.hazmat.primitives.asymmetric.ec": 'ECDSA',
+  "cryptography.hazmat.primitives.asymmetric.ed25519": 'ECDSA',
+  "cryptography.hazmat.primitives.asymmetric.ed448": 'ECDSA',
+  "cryptography.hazmat.primitives.asymmetric.dh": 'DH',
+  "cryptography.hazmat.primitives.asymmetric.x25519": 'DH',
+  "cryptography.hazmat.primitives.asymmetric.x448": 'DH',
+  "Crypto.PublicKey.RSA": 'RSA',
+  "Crypto.PublicKey.ECC": 'ECDSA',
+  "Crypto.Signature.eddsa": 'ECDSA',
+  "Crypto.Signature.pss": 'RSA',
+  "Crypto.Signature.pkcs1_15": 'RSA',
+  "Crypto.Cipher.PKCS1_OAEP": 'RSA',
+  "Crypto.Cipher.PKCS1_v1_5": 'RSA',
+  "Crypto.Cipher.DES": 'DES3',
+  "Crypto.Cipher.DES3": 'DES3',
+  "Crypto.Hash.SHA256": 'SHA256',
+  "Crypto.Hash.MD5": 'MD5_SHA1',
+  "Crypto.Hash.SHA1": 'MD5_SHA1',
+  "nacl.signing": 'ECDSA',
+  "nacl.public": 'DH',
 };
 
 /* No trailing boundary: real module names carry a parameter suffix
@@ -135,14 +296,131 @@ const PQ_SAFE = {
 
 const SEVERITY_BASE = { HIGH: 60, MEDIUM: 35, LOW: 15 };
 
-/* Comments and string literals. Triple-quoted strings and block comments come
-   first so their single-line counterparts cannot bite into them. */
-const NONCODE = /"""[\s\S]*?"""|'''[\s\S]*?'''|\/\*[\s\S]*?\*\/|\/\/[^\n]*|#[^\n]*|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/g;
+/* Comments and string literals, masked per language: parity with
+   backend/qrbst/langprofiles.py. Multi-line forms come first so their
+   single-line counterparts cannot bite into them. */
+const NC = {
+  pyDoc: String.raw`"""[\s\S]*?"""|'''[\s\S]*?'''`,
+  block: String.raw`\/\*[\s\S]*?\*\/`,
+  slash: String.raw`\/\/[^\n]*`,
+  hash: String.raw`#[^\n]*`,
+  dash: String.raw`--[^\n]*`,
+  dq: String.raw`"(?:\\.|[^"\\\n])*"`,
+  sq: String.raw`'(?:\\.|[^'\\\n])*'`,
+  ch: String.raw`'(?:\\.|[^'\\\n])'`,   // Rust: ' opens a char or a lifetime
+  bt: '`[^`]*`',
+  none: '(?!)',
+};
+const ncProfile = (...k) => new RegExp(k.map((x) => NC[x]).join('|'), 'g');
+const NC_C = ncProfile('block', 'slash', 'dq', 'sq');
+const NC_JS = ncProfile('block', 'slash', 'dq', 'sq', 'bt');
+const NC_PROFILES = {
+  Python: ncProfile('pyDoc', 'hash', 'dq', 'sq'),
+  Solidity: NC_C, JavaScript: NC_JS, TypeScript: NC_JS, Go: NC_JS,
+  Java: NC_C, C: NC_C, 'C++': NC_C, 'C#': NC_C, Swift: NC_C, Kotlin: NC_C, Scala: NC_C,
+  Rust: ncProfile('block', 'slash', 'dq', 'ch'),
+  PHP: ncProfile('block', 'slash', 'hash', 'dq', 'sq'),
+  Ruby: ncProfile('hash', 'dq', 'sq'), Shell: ncProfile('hash', 'dq', 'sq'),
+  SQL: ncProfile('block', 'dash', 'dq', 'sq'),
+  Config: ncProfile('block', 'hash'),        // values are the evidence
+  'Key material': ncProfile('none'),
+};
+const NC_FALLBACK = ncProfile('pyDoc', 'block', 'slash', 'hash', 'dq', 'sq');
+
+const EXT_LANGUAGE = {
+  '.py': 'Python', '.pyi': 'Python', '.sol': 'Solidity',
+  '.js': 'JavaScript', '.mjs': 'JavaScript', '.cjs': 'JavaScript', '.jsx': 'JavaScript',
+  '.ts': 'TypeScript', '.tsx': 'TypeScript', '.go': 'Go', '.java': 'Java',
+  '.c': 'C', '.h': 'C', '.cpp': 'C++', '.hpp': 'C++', '.cc': 'C++', '.cxx': 'C++',
+  '.cs': 'C#', '.rs': 'Rust', '.swift': 'Swift', '.kt': 'Kotlin', '.kts': 'Kotlin',
+  '.scala': 'Scala', '.php': 'PHP', '.rb': 'Ruby', '.sh': 'Shell', '.bash': 'Shell', '.sql': 'SQL',
+  '.pem': 'Key material', '.key': 'Key material', '.crt': 'Key material', '.cer': 'Key material',
+  '.pub': 'Key material', '.csr': 'Key material', '.ppk': 'Key material',
+  '.tf': 'Config', '.hcl': 'Config', '.yaml': 'Config', '.yml': 'Config', '.conf': 'Config',
+};
+const BASENAME_LANGUAGE = new Set(['id_rsa', 'id_ecdsa', 'id_ed25519', 'id_dsa', 'authorized_keys', 'known_hosts']);
+const SUPPORTED = new Set(['Python', 'Solidity', 'JavaScript', 'TypeScript', 'Go', 'Java', 'Kotlin',
+  'C', 'C++', 'C#', 'Rust', 'Key material', 'Config']);
+
+function languageForName(filename) {
+  const base = String(filename || '').split(/[\\/]/).pop();
+  if (BASENAME_LANGUAGE.has(base.toLowerCase())) return 'Key material';
+  const dot = base.lastIndexOf('.');
+  return dot > 0 ? EXT_LANGUAGE[base.slice(dot).toLowerCase()] || null : null;
+}
 
 /** Blank comments and strings, preserving length and newlines so offsets and
  *  line numbers still line up with the original source. */
-function maskNoncode(src) {
-  return src.replace(NONCODE, (m) => m.replace(/[^\n]/g, ' '));
+function maskNoncode(src, language) {
+  const re = NC_PROFILES[language] || NC_FALLBACK;
+  re.lastIndex = 0;
+  return src.replace(re, (m) => m.replace(/[^\n]/g, ' '));
+}
+
+/* ── Key material: parity with backend/qrbst/keymaterial.py ──
+   A PEM certificate or PRIVATE KEY names its algorithm by OID inside the
+   base64 body; OpenSSH keys by type name. */
+const KM_OIDS = [
+  ['06092a864886f70d010101', 'RSA'], ['06092a864886f70d01010a', 'RSA'],
+  ['06092a864886f70d01010b', 'RSA'], ['06092a864886f70d01010c', 'RSA'],
+  ['06092a864886f70d01010d', 'RSA'], ['06092a864886f70d010105', 'RSA'],
+  ['06092a864886f70d010105', 'MD5_SHA1'], ['06092a864886f70d010104', 'RSA'],
+  ['06092a864886f70d010104', 'MD5_SHA1'], ['06072a8648ce3d0201', 'ECDSA'],
+  ['2a8648ce3d0403', 'ECDSA'], ['06072a8648ce3d0401', 'ECDSA'],
+  ['06072a8648ce3d0401', 'MD5_SHA1'], ['06032b6570', 'ECDSA'], ['06032b6571', 'ECDSA'],
+  ['06032b656e', 'DH'], ['06032b656f', 'DH'], ['06072a8648ce3e0201', 'DH'],
+  ['06092a864886f70d010301', 'DH'],
+];
+const KM_LABELS = { 'RSA PRIVATE KEY': 'RSA', 'RSA PUBLIC KEY': 'RSA', 'EC PRIVATE KEY': 'ECDSA', 'DH PARAMETERS': 'DH' };
+const KM_SSH_TYPES = [['ssh-rsa', 'RSA'], ['ssh-ed25519', 'ECDSA'], ['ssh-ed448', 'ECDSA'], ['ecdsa-sha2-nistp', 'ECDSA']];
+const KM_PEM = /-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END \1-----/g;
+const KM_SSH_PUB = /(?<![\w-])(ssh-rsa|ssh-ed25519|ssh-ed448|ecdsa-sha2-nistp(?:256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)\s+AAAA[0-9A-Za-z+/]/g;
+const KM_PUTTY = /PuTTY-User-Key-File-\d+:\s*(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp\d+)/g;
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/** Base64 body -> lowercase hex of the bytes ('' when it does not decode). */
+function kmDecodeHex(body) {
+  body = body.split(/\r?\n|\r/).filter((l) => !l.includes(':')).join('\n');
+  const clean = body.replace(/\\[nr]/g, '').replace(/[^A-Za-z0-9+/=]/g, '').replace(/=+$/, '');
+  if (clean.length % 4 === 1 || /=/.test(clean)) return '';
+  let bits = 0, acc = 0, hex = '';
+  for (const c of clean) {
+    acc = ((acc << 6) | B64.indexOf(c)) & 0xffff; bits += 6;
+    if (bits >= 8) { bits -= 8; hex += ((acc >> bits) & 255).toString(16).padStart(2, '0'); }
+  }
+  return hex;
+}
+
+function kmHasHex(hex, needle) {
+  for (let i = hex.indexOf(needle); i !== -1; i = hex.indexOf(needle, i + 1)) if (i % 2 === 0) return true;
+  return false;
+}
+
+const kmAsciiHex = (t) => [...t].map((c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+
+function scanKeyMaterial(src) {
+  const out = [];
+  KM_PEM.lastIndex = 0;
+  let m;
+  while ((m = KM_PEM.exec(src)) !== null) {
+    const label = m[1];
+    const ln = lineAt(src, m.index);
+    let fams = [];
+    if (KM_LABELS[label]) fams = [KM_LABELS[label]];
+    else if (label === 'OPENSSH PRIVATE KEY') {
+      const hex = kmDecodeHex(m[2]);
+      fams = KM_SSH_TYPES.filter(([t]) => kmHasHex(hex, kmAsciiHex(t))).map(([, f]) => f);
+    } else if (label !== 'ENCRYPTED PRIVATE KEY') {
+      const hex = kmDecodeHex(m[2]);
+      fams = KM_OIDS.filter(([o]) => kmHasHex(hex, o)).map(([, f]) => f);
+    }
+    for (const f of new Set(fams)) out.push([ln, f, `-----BEGIN ${label}-----`]);
+  }
+  for (const rx of [KM_SSH_PUB, KM_PUTTY]) {
+    rx.lastIndex = 0;
+    while ((m = rx.exec(src)) !== null) out.push([lineAt(src, m.index), m[1] === 'ssh-rsa' ? 'RSA' : 'ECDSA', m[1]]);
+  }
+  return out;
 }
 
 /** Line number (1-based) of a character offset. */
@@ -232,7 +510,47 @@ function resolveAliasCalls(code) {
   return out;
 }
 
-function detectLanguage(src) {
+/* Python imports of a vulnerable module: parity with python_import_hits in
+   crypto_scanner.py. PY_IMPORT_FAMILY is generated from the Python table. */
+const PY_FROM_IMPORT = /^[ \t]*from[ \t]+([\w.]+)[ \t]+import[ \t]+(\([^)]*\)|[^\n]*)/gm;
+const PY_IMPORT = /^[ \t]*import[ \t]+([^\n]+)/gm;
+
+function pyImportHits(code) {
+  const out = [];
+  const names = (body, base, fn) => {
+    const re = /[A-Za-z_][\w.]*/g;
+    let n, prev = '';
+    while ((n = re.exec(body)) !== null) {
+      if (prev !== 'as' && n[0] !== 'as') fn(n[0], base + n.index);
+      prev = n[0];
+    }
+  };
+  let m;
+  PY_FROM_IMPORT.lastIndex = 0;
+  while ((m = PY_FROM_IMPORT.exec(code)) !== null) {
+    const mod = m[1];
+    const modStart = m.index + m[0].indexOf(mod, m[0].indexOf('from') + 4);
+    if (Object.prototype.hasOwnProperty.call(PY_IMPORT_FAMILY, mod)) { out.push([modStart, PY_IMPORT_FAMILY[mod], mod]); continue; }
+    const bodyStart = m.index + m[0].length - m[2].length;
+    names(m[2], bodyStart, (name, at) => {
+      const key = mod + '.' + name;
+      if (Object.prototype.hasOwnProperty.call(PY_IMPORT_FAMILY, key)) out.push([at, PY_IMPORT_FAMILY[key], key]);
+    });
+  }
+  PY_IMPORT.lastIndex = 0;
+  while ((m = PY_IMPORT.exec(code)) !== null) {
+    const bodyStart = m.index + m[0].length - m[1].length;
+    names(m[1], bodyStart, (name, at) => {
+      // Bare `import rsa` is not a finding (its use sites are); dotted imports are.
+      if (name.includes('.') && Object.prototype.hasOwnProperty.call(PY_IMPORT_FAMILY, name)) out.push([at, PY_IMPORT_FAMILY[name], name]);
+    });
+  }
+  return out;
+}
+
+function detectLanguage(filename, src) {
+  const byName = languageForName(filename);
+  if (byName) return byName;
   if (/pragma\s+solidity/.test(src)) return 'Solidity';
   if (/contract\s+\w+\s*\{/.test(src)) return 'Solidity';
   if (/def\s+\w+\s*\(/.test(src)) return 'Python';
@@ -243,13 +561,15 @@ function detectLanguage(src) {
 
 function scanSource(filename, src) {
   const lines = src.split('\n');
-  const code = maskNoncode(src);
-  const language = detectLanguage(src);
+  const language = detectLanguage(filename, src);
+  const code = maskNoncode(src, language);
 
-  // Collect every regex hit against masked (code-only) text.
+  // Collect every regex hit against masked (code-only) text. Config and key
+  // files are data: they get only their own rules, never code patterns.
+  const isCode = language !== 'Config' && language !== 'Key material';
   const raw = [];
   for (const [algo, def] of Object.entries(VULNERABLE)) {
-    for (const re of def.patterns) {
+    for (const re of isCode ? def.patterns : []) {
       re.lastIndex = 0;
       let m;
       while ((m = re.exec(code)) !== null) {
@@ -262,7 +582,7 @@ function scanSource(filename, src) {
           line_number: ln,
           line_content: (lines[ln - 1] || '').trim(),
           matched_pattern: m[0],
-          quantum_vulnerable: true,
+          quantum_vulnerable: def.quantumVulnerable !== false,
           quantum_threat: def.quantumThreat || 'shor',
         });
       }
@@ -273,7 +593,7 @@ function scanSource(filename, src) {
   // names the algorithm in a string, which masking blanks. Match the raw
   // source and keep a hit only when the call name itself is code.
   for (const [algo, def] of Object.entries(VULNERABLE)) {
-    for (const re of def.calls || []) {
+    for (const re of isCode ? def.calls || [] : []) {
       re.lastIndex = 0;
       let m;
       while ((m = re.exec(src)) !== null) {
@@ -286,10 +606,71 @@ function scanSource(filename, src) {
           line_number: ln,
           line_content: (lines[ln - 1] || '').trim(),
           matched_pattern: m[0],
-          quantum_vulnerable: true,
+          quantum_vulnerable: def.quantumVulnerable !== false,
           quantum_threat: def.quantumThreat || 'shor',
         });
       }
+    }
+  }
+
+  // Go import paths are strings, so masking hides them; raw source, Go only.
+  if (language === 'Go') {
+    for (const [algo, def] of Object.entries(VULNERABLE)) {
+      for (const re of def.go_imports || []) {
+        re.lastIndex = 0;
+        let m;
+        while ((m = re.exec(src)) !== null) {
+          if (m[0] === '') { re.lastIndex++; continue; }
+          const ln = lineAt(src, src.indexOf('"', m.index));
+          raw.push({
+            algorithm: algo, description: def.description, severity: def.severity,
+            line_number: ln, line_content: (lines[ln - 1] || '').trim(), matched_pattern: m[0].trim(),
+            quantum_vulnerable: def.quantumVulnerable !== false, quantum_threat: def.quantumThreat || 'shor',
+          });
+        }
+      }
+    }
+  }
+
+  // Config patterns: only in config files, where the value is the evidence.
+  if (language === 'Config') {
+    for (const [algo, def] of Object.entries(VULNERABLE)) {
+      for (const re of def.config || []) {
+        re.lastIndex = 0;
+        let m;
+        while ((m = re.exec(code)) !== null) {
+          if (m[0] === '') { re.lastIndex++; continue; }
+          const ln = lineAt(code, m.index);
+          raw.push({
+            algorithm: algo, description: def.description, severity: def.severity,
+            line_number: ln, line_content: (lines[ln - 1] || '').trim(), matched_pattern: m[0],
+            quantum_vulnerable: def.quantumVulnerable !== false, quantum_threat: def.quantumThreat || 'shor',
+          });
+        }
+      }
+    }
+  }
+
+  // Keys and certificates, in any file: a key pasted into source is still that key.
+  for (const [ln, algo, matched] of scanKeyMaterial(src)) {
+    const def = VULNERABLE[algo];
+    raw.push({
+      algorithm: algo, description: def.description, severity: def.severity,
+      line_number: ln, line_content: (lines[ln - 1] || '').trim(), matched_pattern: matched,
+      quantum_vulnerable: def.quantumVulnerable !== false, quantum_threat: def.quantumThreat || 'shor',
+    });
+  }
+
+  // Python imports of a vulnerable module, incl. multi-line `from x import (...)`.
+  if (language === 'Python') {
+    for (const [offset, algo, text] of pyImportHits(code)) {
+      const def = VULNERABLE[algo];
+      const ln = lineAt(code, offset);
+      raw.push({
+        algorithm: algo, description: def.description, severity: def.severity,
+        line_number: ln, line_content: (lines[ln - 1] || '').trim(), matched_pattern: text,
+        quantum_vulnerable: def.quantumVulnerable !== false, quantum_threat: def.quantumThreat || 'shor',
+      });
     }
   }
 
@@ -307,7 +688,7 @@ function scanSource(filename, src) {
         line_number: ln,
         line_content: lineText,
         matched_pattern: lineText || (family + ' (alias call)'),
-        quantum_vulnerable: true,
+        quantum_vulnerable: def.quantumVulnerable !== false,
         quantum_threat: def.quantumThreat || 'shor',
       });
     }
@@ -323,6 +704,15 @@ function scanSource(filename, src) {
   let vulnerabilities = [...best.values()].sort(
     (a, b) => a.line_number - b.line_number || a.algorithm.localeCompare(b.algorithm)
   );
+
+  // A bare curve name on a line that already shows key exchange is not also
+  // ECDSA: parity with crypto_scanner.py (_CURVE_NAME).
+  const dhLines = new Set(vulnerabilities.filter((v) => v.algorithm === 'DH').map((v) => v.line_number));
+  if (dhLines.size) {
+    const curveOnly = /^(?:sec[pt]\d{3}[rk][12]|prime\d{3}v\d|NIST\d{3}p|brainpoolP\d{3}[rt]1)$/i;
+    vulnerabilities = vulnerabilities.filter((v) => !(v.algorithm === 'ECDSA'
+      && dhLines.has(v.line_number) && curveOnly.test(v.matched_pattern.trim())));
+  }
 
   // AES key-size refinement (Python only), parity with crypto_scanner.py:
   // drop AES.new findings proven to use a >=256-bit key. Unknown/<256 stay.
@@ -370,7 +760,8 @@ function scanSource(filename, src) {
     vulnerability_count: vulnerabilities.length,
     informational_mentions: [...mentions.values()].sort((a, b) => a.line_number - b.line_number),
     raw_match_count: raw.length,
-    quantum_ready: vulnerabilities.length === 0,
+    language_supported: SUPPORTED.has(language),
+    quantum_ready: SUPPORTED.has(language) ? vulnerabilities.length === 0 : null,
     pq_algorithms_detected: pq,
     source: src,
   };
@@ -463,6 +854,13 @@ key = os.urandom(32)                     # 256-bit, replaces DES/3DES
 cipher = AES.new(key, AES.MODE_GCM)
 ciphertext, tag = cipher.encrypt_and_digest(plaintext)`,
   },
+  MD5_SHA1: {
+    replacement: 'SHA-256 / SHA-384', standard: 'FIPS 180-4',
+    note: 'Not a quantum finding: MD5 and SHA-1 have practical collisions today (SHA-1 SHAttered, 2017). Replace them now; use SHA-384 where the digest must last.',
+    python: `import hashlib
+
+digest = hashlib.sha384(data).digest()   # replaces md5/sha1`,
+  },
 };
 
 function buildPlan(scan) {
@@ -472,7 +870,7 @@ function buildPlan(scan) {
     groups.get(v.algorithm).push(v);
   }
 
-  const order = ['ECDSA', 'RSA', 'DH', 'AES_SHORT', 'DES3', 'SHA256'];
+  const order = ['ECDSA', 'RSA', 'DH', 'AES_SHORT', 'DES3', 'MD5_SHA1', 'SHA256'];
   const steps = [];
   for (const algo of order) {
     if (!groups.has(algo)) continue;
@@ -549,6 +947,8 @@ const PRIMITIVE = {
   DH: ['key-agree', 'ML-KEM', 'FIPS 203'],
   SHA256: ['hash', 'SHA-384/SHA-512', 'FIPS 180-4'],
   AES_SHORT: ['block-cipher', 'AES-256', 'FIPS 197'],
+  DES3: ['block-cipher', 'AES-256', 'FIPS 197'],
+  MD5_SHA1: ['hash', 'SHA-256/SHA-384', 'FIPS 180-4'],
 };
 
 function buildCbom(scan, meta) {
@@ -985,10 +1385,10 @@ function doBadge() {
          migration, then re-scan the migrated file to qualify.</span>`, 'warn');
     return;
   }
-  if (scan.language === 'Unknown') {
+  if (!SUPPORTED.has(scan.language)) {
     out(`<strong>Not certified</strong>
-         <span>This file's language was not recognised, so finding nothing in it is not
-         evidence that it is quantum-safe. Supported: Solidity, Python, JavaScript, Go.</span>`, 'warn');
+         <span>This file's language is not one this detector analyses, so finding nothing in it
+         is not evidence that it is quantum-safe. Supported: ${[...SUPPORTED].join(', ')}.</span>`, 'warn');
     return;
   }
 

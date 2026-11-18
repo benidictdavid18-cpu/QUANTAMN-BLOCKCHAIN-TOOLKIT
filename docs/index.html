@@ -38,8 +38,8 @@
     <p class="eyebrow">NIST FIPS 203 · 204 · 205</p>
     <h1>Find the cryptography<br>a quantum computer breaks.</h1>
     <p class="lede">
-      Upload Solidity, Python, JavaScript or Go source. QRBST locates every
-      active call site using ECDSA, RSA, Diffie–Hellman, SHA-256 or short-key
+      Upload source (Python, Solidity, JavaScript, TypeScript, Go, Java, Kotlin, C, C++, C#, Rust), a key or certificate (.pem, .crt, .pub), or a config file (nginx, Terraform, YAML). QRBST locates every
+      active use of ECDSA/EdDSA, RSA, Diffie–Hellman, SHA-256, DES/3DES, MD5/SHA-1 or short-key
       AES, scores the exposure, and writes the migration to module-lattice
       replacements. Nothing leaves this browser.
     </p>
@@ -103,7 +103,7 @@
 
       <div class="dropzone" id="dropZone" tabindex="0" role="button"
            aria-label="Choose a source file to scan, or drop one here">
-        <input type="file" id="codeFile" accept=".sol,.py,.js,.ts,.go,.java,.rs,.txt" hidden>
+        <input type="file" id="codeFile" accept=".sol,.py,.js,.mjs,.cjs,.jsx,.ts,.tsx,.go,.java,.kt,.kts,.c,.h,.cpp,.hpp,.cc,.cs,.rs,.pem,.crt,.cer,.pub,.key,.csr,.tf,.hcl,.yaml,.yml,.conf,.txt" hidden>
         <span class="dz-ico" aria-hidden="true"></span>
         <span class="dz-main">Drop a source file, or click to choose</span>
         <span class="dz-sub" id="fileName">.sol · .py · .js · .go — parsed in-browser</span>
