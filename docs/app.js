@@ -50,6 +50,7 @@ const VULNERABLE = {
       /\bgetInstance\s*\(\s*['\"`][\w-]*withECDSA/gi,
       /\bECGenParameterSpec\s*\(\s*['\"`]/gi,
       /\b(?:curve|curve_name|crv)\s*(?:==|!=|=)\s*['\"`](?:ed25519|ed448|secp\d{3}[rk]1|prime\d{3}v\d|P-(?:256|384|521)|brainpoolP\d{3}r1)['\"`]/gi,
+      /\b_?(?:algorithms?|alg|algo|hash_?alg\w*|digest_?alg\w*)\s*(?:==|!=|=|:)\s*\[?\s*['\"`](?:ES(?:256K?|384|512)|EdDSA)['\"`]/gi,
     ],
     config: [
       /\b(?:algorithm|key_?algorithm|keyAlgorithm|key_?type|keyType)\s*[:=]\s*[\"']?(?:ECDSA|ED25519|EdDSA|EC_)/gi,
@@ -94,6 +95,8 @@ const VULNERABLE = {
       /\bcreate(?:Sign|Verify)\)?\s*\(\s*['\"`]rsa-/gi,
       /\bname\s*:\s*['\"`](?:RSA-OAEP|RSA-PSS|RSASSA-PKCS1-v1_5)['\"`]/gi,
       /\bgetInstance\s*\(\s*['\"`](?:RSA(?:\/|['\"`])|RSASSA-|RSA-(?:OAEP|PSS)|[\w-]*withRSA)/gi,
+      /\b_?(?:algorithms?|alg|algo|hash_?alg\w*|digest_?alg\w*)\s*(?:==|!=|=|:)\s*\[?\s*['\"`](?:RS|PS)(?:256|384|512)['\"`]/gi,
+      /\b_?(?:algorithms?|alg|algo|hash_?alg\w*|digest_?alg\w*)\s*(?:==|!=|=|:)\s*\[?\s*['\"`](?:RSA-OAEP(?:-256)?|RSA1_5)['\"`]/gi,
     ],
     config: [
       /\b(?:algorithm|key_?algorithm|keyAlgorithm|key_?spec|customer_master_key_spec|key_?type|keyType)\s*[:=]\s*[\"']?RSA/gi,
@@ -119,6 +122,7 @@ const VULNERABLE = {
       /\bkeccak256\s*\(/gi,
       /\bSHA256\s*\./gi,
       /\bkeccak\s*\(/gi,
+      /(?<![A-Za-z0-9])keccak_?256/gi,
       /from\s+hashlib\s+import\s+[^\n]*\bsha256\b/gi,
       /\bSHA256_(?:Init|Update|Final)\b/gi,
       /\bEVP_sha256\b/gi,
@@ -133,6 +137,7 @@ const VULNERABLE = {
       /\bdigest\s*\(\s*(?:\{\s*name\s*:\s*)?['\"`]sha-256['\"`]/gi,
       /\bgetInstance\s*\(\s*['\"`]SHA-?256['\"`]/gi,
       /\b(?:hash_name|digestmod|hashfunc)\s*=\s*['\"`]sha-?256['\"`]/gi,
+      /\b_?(?:algorithms?|alg|algo|hash_?alg\w*|digest_?alg\w*)\s*(?:==|!=|=|:)\s*\[?\s*['\"`](?:SHA-?256|HS256)['\"`]/gi,
     ],
     go_imports: [
       /^[ \t]*(?:import[ \t]+)?(?:[A-Za-z_.]\w*[ \t]+)?\"crypto\/sha256\"/gim,
@@ -176,6 +181,30 @@ const VULNERABLE = {
       /^[ \t]*(?:import[ \t]+)?(?:[A-Za-z_.]\w*[ \t]+)?\"(?:crypto\/ecdh|golang\.org\/x\/crypto\/curve25519)\"/gim,
     ],
     description: 'Diffie–Hellman / ECDH key exchange, incl. X25519/Curve25519 (broken by Shor’s algorithm)',
+    severity: 'HIGH',
+    quantumVulnerable: true,
+    quantumThreat: 'shor',
+  },
+  DSA: {
+    patterns: [
+      /\bDSA\s*\./gi,
+      /\bDSA(?:Public|Private)(?:Key|Numbers)(?:Spec)?\b/gi,
+      /\bDSACryptoServiceProvider\b/gi,
+      /\bDSA_(?:new|generate_key|generate_parameters(?:_ex)?|sign|verify|do_sign|do_verify)\b/gi,
+      /\bEVP_PKEY_DSA\b/gi,
+      /#include\s*<openssl\/dsa\.h>/gi,
+      /\bjava\.security\.(?:spec|interfaces)\.DSA\w*/gi,
+    ],
+    calls: [
+      /\bgetInstance\s*\(\s*['\"`](?:DSA|[\w-]*withDSA)['\"`]/gi,
+    ],
+    config: [
+      /\bssh-dss\b/gi,
+    ],
+    go_imports: [
+      /^[ \t]*(?:import[ \t]+)?(?:[A-Za-z_.]\w*[ \t]+)?\"crypto\/dsa\"/gim,
+    ],
+    description: "DSA (finite-field Digital Signature Algorithm), broken by Shor's algorithm like RSA and ECDSA; already disallowed for new signatures by FIPS 186-5. Migrate to ML-DSA.",
     severity: 'HIGH',
     quantumVulnerable: true,
     quantumThreat: 'shor',
@@ -244,6 +273,7 @@ const VULNERABLE = {
       /\bgetInstance\s*\(\s*['\"`](?:MD5|SHA-?1)(?:['\"`]|with)/gi,
       /\bdigest\s*\(\s*(?:\{\s*name\s*:\s*)?['\"`]sha-1['\"`]/gi,
       /\b(?:hash_name|digestmod|hashfunc)\s*=\s*['\"`](?:md5|sha-?1)['\"`]/gi,
+      /\b_?(?:algorithms?|alg|algo|hash_?alg\w*|digest_?alg\w*)\s*(?:==|!=|=|:)\s*\[?\s*['\"`](?:MD5(?:-sess)?|SHA-?1)['\"`]/gi,
     ],
     config: [
       /(?<![A-Za-z0-9!])hmac-(?:md5|sha1)(?![A-Za-z0-9])/gi,
@@ -266,6 +296,8 @@ const PY_IMPORT_FAMILY = {
   "cryptography.hazmat.primitives.asymmetric.ed25519": 'ECDSA',
   "cryptography.hazmat.primitives.asymmetric.ed448": 'ECDSA',
   "cryptography.hazmat.primitives.asymmetric.dh": 'DH',
+  "cryptography.hazmat.primitives.asymmetric.dsa": 'DSA',
+  "Crypto.PublicKey.DSA": 'DSA',
   "cryptography.hazmat.primitives.asymmetric.x25519": 'DH',
   "cryptography.hazmat.primitives.asymmetric.x448": 'DH',
   "Crypto.PublicKey.RSA": 'RSA',
@@ -308,15 +340,18 @@ const NC = {
   dq: String.raw`"(?:\\.|[^"\\\n])*"`,
   sq: String.raw`'(?:\\.|[^'\\\n])*'`,
   ch: String.raw`'(?:\\.|[^'\\\n])'`,   // Rust: ' opens a char or a lifetime
-  bt: '`[^`]*`',
+  bt: '`[^`]*`',                                    // Go raw strings
+  tpl: String.raw`\x60(?:\\[\s\S]|\$\{[^{}\x60]*\}|[^\x60\\])*\x60`, // JS/TS templates
   none: '(?!)',
 };
+const NC_INTERPOLATION = /\$\{([^{}`]*)\}/g;
 const ncProfile = (...k) => new RegExp(k.map((x) => NC[x]).join('|'), 'g');
 const NC_C = ncProfile('block', 'slash', 'dq', 'sq');
-const NC_JS = ncProfile('block', 'slash', 'dq', 'sq', 'bt');
+const NC_JS = ncProfile('block', 'slash', 'dq', 'sq', 'tpl');
+const NC_GO = ncProfile('block', 'slash', 'dq', 'sq', 'bt');
 const NC_PROFILES = {
   Python: ncProfile('pyDoc', 'hash', 'dq', 'sq'),
-  Solidity: NC_C, JavaScript: NC_JS, TypeScript: NC_JS, Go: NC_JS,
+  Solidity: NC_C, JavaScript: NC_JS, TypeScript: NC_JS, Go: NC_GO,
   Java: NC_C, C: NC_C, 'C++': NC_C, 'C#': NC_C, Swift: NC_C, Kotlin: NC_C, Scala: NC_C,
   Rust: ncProfile('block', 'slash', 'dq', 'ch'),
   PHP: ncProfile('block', 'slash', 'hash', 'dq', 'sq'),
@@ -353,8 +388,20 @@ function languageForName(filename) {
  *  line numbers still line up with the original source. */
 function maskNoncode(src, language) {
   const re = NC_PROFILES[language] || NC_FALLBACK;
+  const interpolates = language === 'JavaScript' || language === 'TypeScript';
   re.lastIndex = 0;
-  return src.replace(re, (m) => m.replace(/[^\n]/g, ' '));
+  return src.replace(re, (m) => {
+    let out = m.replace(/[^\n]/g, ' ');
+    // `${expr}` in a template literal is code: keep it, masked by the same
+    // rules (parity with langprofiles.mask_noncode).
+    if (interpolates && m[0] === '`') {
+      for (const i of [...m.matchAll(NC_INTERPOLATION)]) {
+        const start = i.index + 2;
+        out = out.slice(0, start) + maskNoncode(i[1], language) + out.slice(start + i[1].length);
+      }
+    }
+    return out;
+  });
 }
 
 /* ── Key material: parity with backend/qrbst/keymaterial.py ──
@@ -370,12 +417,14 @@ const KM_OIDS = [
   ['06072a8648ce3d0401', 'MD5_SHA1'], ['06032b6570', 'ECDSA'], ['06032b6571', 'ECDSA'],
   ['06032b656e', 'DH'], ['06032b656f', 'DH'], ['06072a8648ce3e0201', 'DH'],
   ['06092a864886f70d010301', 'DH'],
+  ['06072a8648ce380401', 'DSA'], ['06072a8648ce380403', 'DSA'],
+  ['06072a8648ce380403', 'MD5_SHA1'], ['0609608648016503040302', 'DSA'],
 ];
-const KM_LABELS = { 'RSA PRIVATE KEY': 'RSA', 'RSA PUBLIC KEY': 'RSA', 'EC PRIVATE KEY': 'ECDSA', 'DH PARAMETERS': 'DH' };
-const KM_SSH_TYPES = [['ssh-rsa', 'RSA'], ['ssh-ed25519', 'ECDSA'], ['ssh-ed448', 'ECDSA'], ['ecdsa-sha2-nistp', 'ECDSA']];
+const KM_LABELS = { 'RSA PRIVATE KEY': 'RSA', 'RSA PUBLIC KEY': 'RSA', 'EC PRIVATE KEY': 'ECDSA', 'DH PARAMETERS': 'DH', 'DSA PRIVATE KEY': 'DSA' };
+const KM_SSH_TYPES = [['ssh-rsa', 'RSA'], ['ssh-dss', 'DSA'], ['ssh-ed25519', 'ECDSA'], ['ssh-ed448', 'ECDSA'], ['ecdsa-sha2-nistp', 'ECDSA']];
 const KM_PEM = /-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END \1-----/g;
-const KM_SSH_PUB = /(?<![\w-])(ssh-rsa|ssh-ed25519|ssh-ed448|ecdsa-sha2-nistp(?:256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)\s+AAAA[0-9A-Za-z+/]/g;
-const KM_PUTTY = /PuTTY-User-Key-File-\d+:\s*(ssh-rsa|ssh-ed25519|ecdsa-sha2-nistp\d+)/g;
+const KM_SSH_PUB = /(?<![\w-])(ssh-rsa|ssh-dss|ssh-ed25519|ssh-ed448|ecdsa-sha2-nistp(?:256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)\s+AAAA[0-9A-Za-z+/]/g;
+const KM_PUTTY = /PuTTY-User-Key-File-\d+:\s*(ssh-rsa|ssh-dss|ssh-ed25519|ecdsa-sha2-nistp\d+)/g;
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 /** Base64 body -> lowercase hex of the bytes ('' when it does not decode). */
@@ -418,7 +467,7 @@ function scanKeyMaterial(src) {
   }
   for (const rx of [KM_SSH_PUB, KM_PUTTY]) {
     rx.lastIndex = 0;
-    while ((m = rx.exec(src)) !== null) out.push([lineAt(src, m.index), m[1] === 'ssh-rsa' ? 'RSA' : 'ECDSA', m[1]]);
+    while ((m = rx.exec(src)) !== null) out.push([lineAt(src, m.index), ({ 'ssh-rsa': 'RSA', 'ssh-dss': 'DSA' })[m[1]] || 'ECDSA', m[1]]);
   }
   return out;
 }
@@ -861,6 +910,14 @@ ciphertext, tag = cipher.encrypt_and_digest(plaintext)`,
 
 digest = hashlib.sha384(data).digest()   # replaces md5/sha1`,
   },
+  DSA: {
+    replacement: 'ML-DSA-65', standard: 'FIPS 204',
+    note: 'DSA is broken by Shor’s algorithm and FIPS 186-5 already disallows it for new signatures. Move signing to ML-DSA.',
+    python: `from dilithium_py.ml_dsa import ML_DSA_65
+
+pk, sk = ML_DSA_65.keygen()
+signature = ML_DSA_65.sign(sk, message)`,
+  },
 };
 
 function buildPlan(scan) {
@@ -870,7 +927,7 @@ function buildPlan(scan) {
     groups.get(v.algorithm).push(v);
   }
 
-  const order = ['ECDSA', 'RSA', 'DH', 'AES_SHORT', 'DES3', 'MD5_SHA1', 'SHA256'];
+  const order = ['ECDSA', 'RSA', 'DSA', 'DH', 'AES_SHORT', 'DES3', 'MD5_SHA1', 'SHA256'];
   const steps = [];
   for (const algo of order) {
     if (!groups.has(algo)) continue;
@@ -945,6 +1002,7 @@ const PRIMITIVE = {
   ECDSA: ['signature', 'ML-DSA', 'FIPS 204'],
   RSA: ['pke', 'ML-KEM', 'FIPS 203'],
   DH: ['key-agree', 'ML-KEM', 'FIPS 203'],
+  DSA: ['signature', 'ML-DSA', 'FIPS 204'],
   SHA256: ['hash', 'SHA-384/SHA-512', 'FIPS 180-4'],
   AES_SHORT: ['block-cipher', 'AES-256', 'FIPS 197'],
   DES3: ['block-cipher', 'AES-256', 'FIPS 197'],
