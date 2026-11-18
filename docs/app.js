@@ -15,15 +15,29 @@ const VULNERABLE = {
   ECDSA: {
     patterns: [
       /ecrecover\s*\(/gi,
-      /\bECDSA\s*\./gi,
+      // Bare name: ec.ECDSA(...), import {ECDSA}, using ECDSA for.
+      /\bECDSA\b/gi,
       /\bsecp256k1\b/gi,
       /elliptic\.curve/gi,
       /from\s+ecdsa\s+import/gi,
+      /from\s+cryptography\.hazmat\.primitives\.asymmetric\s+import\s+ec\b/gi,
       /eth_keys\.keys/gi,
       /Web3\.eth\.account/gi,
       /SigningKey\.generate/gi,
       /\bed25519/gi,
       /\beddsa\b/gi,
+      // NIST P-256/384/521 and the other named curves.
+      /\bsec[pt]\d{3}[rk][12]\b/gi,
+      /\bprime(?:192|239|256)v[123]\b/gi,
+      /\bNIST(?:192|224|256|384|521)p\b/gi,
+      /\bbrainpoolP\d{3}[rt]1\b/gi,
+      /\belliptic\.P(?:224|256|384|521)\b/gi,
+    ],
+    // Algorithm named in a string argument of a known crypto call.
+    calls: [
+      /\bgenerateKeyPair(?:Sync)?\)?\s*\(\s*['"`](?:ec|ed25519|ed448)['"`]/gi,
+      /\bname\s*:\s*['"`](?:ECDSA|Ed25519)['"`]/gi,
+      /\bnamedCurve\s*:\s*['"`](?:P-(?:256|384|521)|secp256k1|prime256v1)['"`]/gi,
     ],
     description: 'Elliptic-curve signatures, incl. ECDSA and Ed25519/EdDSA (broken by Shor’s algorithm)',
     severity: 'HIGH',
@@ -35,6 +49,13 @@ const VULNERABLE = {
       /\brsa\.newkeys\b/gi,
       /from\s+Crypto\.PublicKey\s+import\s+RSA/gi,
       /from\s+cryptography\.hazmat\.primitives\.asymmetric\s+import\s+rsa/gi,
+      // Node's public/private encrypt/decrypt are RSA-only.
+      /\b(?:public|private)(?:En|De)crypt\s*\(/gi,
+    ],
+    calls: [
+      /\bgenerateKeyPair(?:Sync)?\)?\s*\(\s*['"`]rsa(?:-pss)?['"`]/gi,
+      /\bcreate(?:Sign|Verify)\)?\s*\(\s*['"`]rsa-/gi,
+      /\bname\s*:\s*['"`](?:RSA-OAEP|RSA-PSS|RSASSA-PKCS1-v1_5)['"`]/gi,
     ],
     description: 'RSA encryption (broken by Shor’s algorithm)',
     severity: 'HIGH',
@@ -47,6 +68,10 @@ const VULNERABLE = {
       /\bkeccak256\s*\(/gi,
       /\bSHA256\s*\./gi,
     ],
+    calls: [
+      /\b(?:createHash|createHmac|createSign|createVerify|hashlib\.new)\)?\s*\(\s*['"`]sha-?256['"`]/gi,
+      /\bdigest\s*\(\s*(?:\{\s*name\s*:\s*)?['"`]sha-256['"`]/gi,
+    ],
     description: 'SHA-256 hashing. Grover gives a quadratic speedup only, leaving ~128-bit effective preimage resistance — NOT a Shor-style break like RSA/ECDSA. Review only where a digest must stay collision-bound for decades; prefer SHA-384/512 there.',
     severity: 'LOW',
     quantumThreat: 'grover',
@@ -58,6 +83,12 @@ const VULNERABLE = {
       /\bECDH\b/gi,
       /\bx25519/gi,
       /\bcurve25519/gi,
+      /\bcreateECDH\s*\(/gi,
+      /\bcreateDiffieHellman(?:Group)?\s*\(/gi,
+    ],
+    calls: [
+      /\bgenerateKeyPair(?:Sync)?\)?\s*\(\s*['"`](?:x25519|x448|dh)['"`]/gi,
+      /\bname\s*:\s*['"`](?:ECDH|X25519)['"`]/gi,
     ],
     description: 'Diffie–Hellman / ECDH key exchange, incl. X25519/Curve25519 (broken by Shor’s algorithm)',
     severity: 'HIGH',
@@ -67,6 +98,9 @@ const VULNERABLE = {
     patterns: [
       /AES\.new\([^)]*?,\s*AES\.MODE_/gi,
       /\bAES[-_]128\b/gi,
+    ],
+    calls: [
+      /\bcreate(?:Cipher|Decipher)(?:iv)?\)?\s*\(\s*['"`]aes-128-/gi,
     ],
     description: 'AES with potentially insufficient key length. Grover halves the effective key strength, so AES-128 retains ~64 bits; AES-256 remains comfortable. Not a Shor-style break.',
     severity: 'MEDIUM',
@@ -79,6 +113,9 @@ const VULNERABLE = {
       /from\s+Crypto\.Cipher\s+import\s+(?:DES3|DES)\b/gi,
       /\bTripleDES\b/gi,
       /\bDESede\b/gi,
+    ],
+    calls: [
+      /\bcreate(?:Cipher|Decipher)(?:iv)?\)?\s*\(\s*['"`]des(?:-|3|['"`])/gi,
     ],
     description: 'DES / Triple-DES symmetric cipher. The effective key is short (DES 56-bit, 3DES ~112-bit) and Grover halves it further. Ranked HIGH for urgency because both are already broken/deprecated today (NIST SP 800-131A), independent of quantum. The quantum mechanism is still Grover, not a Shor-style break — migrate to AES-256.',
     severity: 'HIGH',
@@ -218,6 +255,30 @@ function scanSource(filename, src) {
       while ((m = re.exec(code)) !== null) {
         if (m[0] === '') { re.lastIndex++; continue; }
         const ln = lineAt(code, m.index);
+        raw.push({
+          algorithm: algo,
+          description: def.description,
+          severity: def.severity,
+          line_number: ln,
+          line_content: (lines[ln - 1] || '').trim(),
+          matched_pattern: m[0],
+          quantum_vulnerable: true,
+          quantum_threat: def.quantumThreat || 'shor',
+        });
+      }
+    }
+  }
+
+  // Call-context patterns, parity with crypto_scanner.py: createHash("sha256")
+  // names the algorithm in a string, which masking blanks. Match the raw
+  // source and keep a hit only when the call name itself is code.
+  for (const [algo, def] of Object.entries(VULNERABLE)) {
+    for (const re of def.calls || []) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(src)) !== null) {
+        if (code[m.index] !== src[m.index]) continue;
+        const ln = lineAt(src, m.index);
         raw.push({
           algorithm: algo,
           description: def.description,
